@@ -1,0 +1,164 @@
+====================================================================
+KẾ HOẠCH + TIẾN ĐỘ — TOOL TRAFFIC FACEBOOK
+(Cập nhật: 2026-08-24 — khi code xong phần nào, đánh dấu [ĐÃ XONG] bên dưới)
+====================================================================
+
+I. MỤC TIÊU
+--------------------------------------------------------------------
+Tự động hóa 2 luồng bằng PYTHON (đã chốt bỏ n8n):
+- LUỒNG A — THU THẬP: cào bài mới từ Facebook nguồn theo KEY → chống trùng
+  → AI nhận diện nhân vật/chủ đề → lưu vào Content Pool (Google Sheets).
+- LUỒNG B — XUẤT BẢN: 4 khung giờ/ngày → chọn content theo hiệu suất thực
+  tế từng Page → rewrite caption (3 bản) → viết bài báo → chỉnh ảnh →
+  đăng Web bằng API → gom bộ FB (user TỰ đăng Facebook bằng GPM riêng)
+  → xác nhận đã đăng → cập nhật trạng thái.
+
+II. CÁC QUYẾT ĐỊNH ĐÃ CHỐT (không thay đổi nếu chưa hỏi lại user)
+--------------------------------------------------------------------
+1. Xây hoàn toàn bằng Python — bỏ n8n. Tái sử dụng engine cào cao_fb.py
+   (Playwright + trình duyệt thật Edge/Chrome + cookies.txt).
+2. Analytics: BỎ Views/Mắt đọc/Reach — chỉ dùng Cảm xúc + Bình luận
+   (+ Chia sẻ). Công thức điểm hiện có: diem = likes + cmt*2 + share*3.
+3. Đăng Facebook: BỎ GPM — user tự đăng bằng cách riêng. Tool dừng ở khâu
+   chuẩn bị bộ bài sẵn sàng (caption + ảnh + link bài báo) + nút xác nhận.
+4. AI: user có key API sẵn (sẽ cung cấp hãng + key — điền vào config.json).
+5. Website đích: tự code, có API riêng — user sẽ gửi tài liệu endpoint.
+6. Sheet: Google Sheets (gspread). CHƯA có credentials → đang chạy chế độ
+   Local (thư mục du_lieu_traffic/, mỗi sheet 1 file JSON) — tự chọn động.
+7. Nhân vật/chủ đề: KẾT HỢP — danh sách gợi ý khai báo theo KEY trong
+   SOURCE CONFIG (cột "Nhân vật gợi ý") + AI được đề xuất tên mới.
+8. Mỗi khung giờ đăng 1 bài/slot; khung giờ khai báo theo Page trong
+   PAGE CONFIG (cột "Khung giờ đăng").
+9. Bootstrap (chưa có analytics): chọn bài MỚI NHẤT đúng KEY.
+10. Media giai đoạn đầu: chỉ Ảnh → Ảnh (Pillow). Reels để sau (GĐ4).
+11. Báo lỗi: Web UI + log (không Telegram/email).
+12. Content quá 7 ngày (content_han_ngay trong config.json) → HET_HAN.
+
+III. CẤU TRÚC DỰ ÁN + TIẾN ĐỘ
+--------------------------------------------------------------------
+[ĐÃ XONG] config.py
+    Cấu hình chung: đọc/ghi config.json (cookies_file, ai.provider/api_key/
+    model, sheets.credentials_file/spreadsheet_id, luong_a.*, content_han_ngay).
+[ĐÃ XONG] google_sheets.py
+    Schema 4 sheet + cột (xem mục VI). 2 chế độ store tự chọn theo config:
+    GoogleSheetsStore (gspread) / LocalJsonStore (du_lieu_traffic/*.json).
+    Hàm: lay_store(), lay_tat_ca(), them_dong(), cap_nhat_dong(), tim_dong().
+    CLI: python google_sheets.py --setup → in hướng dẫn tạo service account
+    + tự tạo 4 sheet khi đã có credentials.
+[ĐÃ XONG] ai_client.py
+    goi_ai(system, user) — provider: mock (không cần key, trả kết quả giả để
+    test luồng) / openai / anthropic / gemini. Key điền ở config.json.
+[ĐÃ XONG] nhan_dien.py
+    nhan_dien_nhan_vat(text, key, goi_y) → tên nhân vật/chủ đề. Gợi ý khớp
+    trước, AI đề xuất mới nếu không khớp, trả "Khác" nếu không chắc.
+[ĐÃ XONG] content_pool.py
+    chuan_hoa_text/hash_caption (so trùng caption), chong_trung() (post_id +
+    hash caption), them_content(), danh_dau_het_han() (7 ngày),
+    chon_content(page_cfg, tin_hieu) (logic chọn: đúng KEY → nhân vật đang
+    tốt → bài mới nhất), doi_status().
+[ĐÃ XONG] luong_a.py
+    chay_luong_a(so_bai, so_lan_cuon, delay, callback, stop_flag) — đọc
+    SOURCE CONFIG → cào từng nguồn (cao_fb.cào_trang) → chống trùng →
+    nhận diện nhân vật → them_content() → danh_dau_het_han().
+    CLI: python luong_a.py [--so-bai N] [--pages N] [--delay N]
+[ĐÃ XONG] requirements.txt — bổ sung gspread + google-auth.
+[ĐÃ XONG] config.json — tạo mặc định (ai.provider=mock, cookies_file=cookies.txt).
+[ĐÃ XONG] du_lieu_traffic/source_config.json — SEED dữ liệu test:
+    KEY=NFL, nguồn=wx.phanvanvu, gợi ý=Patrick Mahomes, Travis Kelce,
+    Tom Brady, Justin Fields, Josh Allen, Baker Mayfield.
+[ĐÃ XONG] CHẠY THỬ Luồng A (2 lần liên tiếp) — 2026-08-24:
+    - Fix chống trùng: so khớp cả BẢN NGẮN nằm trong BẢN DÀI (bản 'Xem thêm'
+      thu gọn vs bản 'Ẩn bớt' đầy đủ) — Facebook cào 2 lần ra 2 dạng.
+    - Bỏ bài caption RỖNG (chỉ toàn ảnh) — không viết lại caption được.
+    - Kết quả 2 lần chạy: 10 → 10 bài mới, lần 2 thêm 1 bài THẬT SỰ mới
+      (feed FB xáo trộn giữa các lần cào — không phải lỗi trùng).
+[CHƯA LÀM] viet_lai.py (GĐ2) — prompt caption 3 bản + bài báo 1500-1700 từ
+    (prompt gốc ở yeucau.txt dòng 124-315), chọn bản caption luân phiên.
+[CHƯA LÀM] media.py (GĐ2) — Ảnh → Ảnh bằng Pillow: crop/resize theo Format
+    page, ghép frame, chèn text; lưu du_lieu_fb/<giờ>/.
+[CHƯA LÀM] dang_web.py (GĐ2) — client gọi API website đích: đăng article +
+    media → nhận Article URL; retry 2 lần; CHỈ thành công mới cho Luồng B
+    tiếp tục. CHỜ tài liệu API từ user.
+[CHƯA LÀM] phan_tich.py (GĐ3) — cào bài recent của Page ĐÍCH (reuse cao_fb)
+    → ghi PAGE PERFORMANCE → tính tín hiệu theo nhân vật (điểm trung bình,
+    ưu tiên bài gần đây).
+[CHƯA LÀM] traffic_core.py (GĐ3) — scheduler (kiểm tra khung giờ mỗi phút),
+    điều phối Luồng A định kỳ (mặc định 2h), vòng đời status.
+[CHƯA LÀM] webui.py (GĐ3, mở rộng) — tab Cấu hình (đọc từ Sheets), Content
+    Pool, Lịch sử đăng; nút "Xác nhận đã đăng FB" → FB_POSTED → DONE;
+    badge lỗi + log slot.
+[CHƯA LÀM] GĐ4 — Reels (ảnh → video, FFmpeg Ken Burns) nếu user cần.
+
+IV. LUỒNG A — THU THẬP (đã code, đang chờ chạy thử)
+--------------------------------------------------------------------
+1. Đọc SOURCE CONFIG: KEY → Facebook nguồn (+ nhân vật gợi ý).
+2. Cào bài mới mỗi nguồn: cao_fb.cào_trang(trang, so_bai=10, so_lan_cuon=3,
+   delay=3, cookies từ cookies.txt) — mặc định mỗi 2h (GĐ3 scheduler).
+3. Chống trùng: post_id có trong pool → bỏ; caption hash trùng → bỏ.
+4. Lưu: caption, media (LINK ảnh FB — KHÔNG tải về máy ở luồng A; tải về
+   lúc đăng bài ở GĐ2), link bài, thời gian đăng, likes/comments/shares.
+5. AI nhận diện nhân vật/chủ đề (gợi ý + AI thêm mới).
+6. Thêm CONTENT POOL: status NEW.
+
+V. LUỒNG B — XUẤT BẢN (GĐ3 — chưa code)
+--------------------------------------------------------------------
+1. Đến giờ (4 khung giờ/ngày, cột "Khung giờ đăng" trong PAGE CONFIG) →
+   lấy Page bật (cột "Bật/Tắt"), 1 bài/slot.
+2. Đọc KEY page + tín hiệu nhân vật từ PAGE PERFORMANCE (phan_tich.py).
+3. Chọn content (content_pool.chon_content): đúng KEY → nhân vật đang chạy
+   tốt nhất → không có thì bài khác cùng KEY (mới nhất trước) → bootstrap
+   = bài mới nhất đúng KEY → không có content thì bỏ slot + log.
+4. Status: LOCKED → PROCESSING.
+5. AI viết lại caption (3 bản, chọn luân phiên) + viết bài báo 1500-1700 từ.
+6. Xử lý ảnh (Pillow) theo Format page.
+7. Đăng Web: API website (article + media) → Article URL.
+8. Status → WEB_POSTED. Tạo bộ FB: caption + ảnh đã xử lý + Article URL
+   → thư mục du_lieu_fb/<giờ>/ + hiển thị trên Web UI.
+9. USER TỰ đăng Facebook (GPM riêng của user) → bấm "Xác nhận đã đăng FB"
+   trên Web UI (hoặc sửa sheet) → FB_POSTED → DONE.
+10. Lỗi bất kỳ bước: retry 2 lần → ERROR (không được chọn lại), log + badge.
+
+VI. GOOGLE SHEETS — 4 sheet + cột (schema đã code trong google_sheets.py)
+--------------------------------------------------------------------
+- PAGE CONFIG:     Page | KEY | Format | Website | Khung giờ đăng | Bật/Tắt
+- SOURCE CONFIG:   KEY | Facebook nguồn | Nhân vật gợi ý
+- CONTENT POOL:    Content ID | KEY | Nhân vật/chủ đề | Source | Caption |
+                   Media | Link bài | Thời gian đăng | Cảm xúc | Bình luận |
+                   Chia sẻ | Caption mới | Bài báo | Article URL | Status | Ghi chú
+- PAGE PERFORMANCE: Page | Post | KEY | Nhân vật/chủ đề | Cảm xúc | Bình luận |
+                   Chia sẻ | Điểm | Thời gian
+- Status: NEW → READY → LOCKED → PROCESSING → WEB_POSTED → FB_POSTED
+           → DONE / ERROR / HET_HAN
+
+VII. CẦN USER CUNG CẤP (blocking — khi AI khác tiếp tục phải hỏi)
+--------------------------------------------------------------------
+1. AI: hãng + API key (điền config.json → ai.provider + ai.api_key).
+2. API website đích: tài liệu endpoint (đăng article + media, xác thực).
+   Khi chưa có → dang_web.py viết giả định, chỉnh sau.
+3. Google Sheets: làm theo hướng dẫn `python google_sheets.py --setup`
+   (service account + spreadsheet_id) → chuyển sang chế độ Sheets.
+4. Dữ liệu khởi tạo: danh sách KEY + nguồn FB + Page đích + Format +
+   khung giờ đăng (PAGE CONFIG) — hiện chỉ có 1 dòng test SOURCE CONFIG.
+
+VIII. CÁCH CHẠY THỬ / VERIFICATION
+--------------------------------------------------------------------
+- python nhan_dien.py          → test nhận diện nhân vật (mock)
+- python content_pool.py       → xem pool + dọn hết hạn
+- python luong_a.py            → chạy Luồng A (cào thật, cần cookies.txt)
+- Chạy Luồng A 2 LẦN LIÊN TIẾP → lần 2 phải báo "0 bài MỚI" (chống trùng OK).
+- Kiểm tra du_lieu_traffic/content_pool.json có đủ bài + Status=NEW.
+
+IX. GHI CHÚ QUAN TRỌNG KHI TIẾP TỤC
+--------------------------------------------------------------------
+- Đang chạy chế độ LOCAL (chưa có Google credentials) — mọi thứ phải chạy
+  được ở chế độ này trước khi nối Sheets thật.
+- ai.provider đang = "mock" — chưa tốn phí, kết quả là text giả. Đổi sang
+  thật khi user cấp key.
+- Media ở luồng A chỉ lưu LINK (không tải ảnh) — tránh đầy đĩa; tải về lúc
+  đăng bài (GĐ2 media.py).
+- 2 prompt viết content (caption + bài báo) nằm NGUYÊN VĂN trong yeucau.txt
+  (dòng 124-315) — khi code viet_lai.py phải đọc từ đó, không viết lại.
+- Tiếng Việt có dấu trong mã nguồn; encoding UTF-8.
+- Công thức điểm cũ (scraper.py): likes + comments*2 + shares*3 — dùng lại
+  cho PAGE PERFORMANCE.
+====================================================================

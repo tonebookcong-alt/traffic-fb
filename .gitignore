@@ -16,6 +16,9 @@ env/
 du_lieu.json
 du_lieu_exel/
 du_lieu_images/
+du_lieu_traffic/content_pool.json
+google_sheets_creds.json
 *.xlsx
 *.csv
 *.log
+

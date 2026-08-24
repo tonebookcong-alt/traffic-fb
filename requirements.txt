@@ -4,3 +4,6 @@ requests
 openpyxl
 flask
 playwright
+# Google Sheets (chế độ Sheets — nếu chỉ chạy local thì không cần)
+gspread
+google-auth

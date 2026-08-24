@@ -1,0 +1,18 @@
+{
+  "cookies_file": "cookies.txt",
+  "ai": {
+    "provider": "mock",
+    "api_key": "",
+    "model": ""
+  },
+  "sheets": {
+    "credentials_file": "google_sheets_creds.json",
+    "spreadsheet_id": ""
+  },
+  "luong_a": {
+    "so_bai_moi_nguon": 10,
+    "so_lan_cuon": 3,
+    "delay": 3.0
+  },
+  "content_han_ngay": 7
+}
