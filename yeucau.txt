@@ -1,0 +1,314 @@
+đây là toàn bộ nội dung tool của chúng ta hãy đọc xem có j chưa hiểu hoặc có j thiếu sót cần bổ sung hãy hỏi tôi trước tiên hãy đọc đã đừng làm gì hết 
+YÊU CẦU TOOL TRAFFIC FACEBOOK
+Mục tiêu: dùng n8n để tự động hóa 2 luồng thu thập content và xuất bản, còn Host chỉ cần định hướng KEY + nguồn Facebook + Page đích + format ảnh/Reels.
+1. LUỒNG A — THU THẬP
+Facebook nguồn cố định theo từng KEY
+→ Cào bài mới
+→ Lấy caption, media, link bài, thời gian đăng, engagement nếu có
+→ Nhận diện nhân vật/chủ đề của bài
+→ Chống trùng
+→ Lưu vào Content Pool/Sheet
+Lưu ý:
+Không lọc cứng theo một mức engagement chung.
+Mỗi Page nguồn có mặt bằng tương tác khác nhau.
+Engagement nguồn chỉ dùng để tham khảo.
+Không loại bài chỉ vì like/comment thấp.
+
+2. LUỒNG B — XUẤT BẢN
+Chạy theo 4 khung giờ/ngày.
++Flow:
+Đến giờ đăng
+→ Chọn Page
+→ Đọc KEY của Page
+→ Đọc Analytics các bài gần đây của Page
+→ Xem Page đang hợp nhân vật/chủ đề nào
+→ Chọn content phù hợp trong Content Pool
+→ Khóa bài
+→ Rewrite caption
+→ Viết bài báo
+→ Chỉnh ảnh hoặc tạo Reels
+→ Đăng bài lên Web bằng API
+→ Đăng Facebook bằng GPM Login
+→ Comment link bài báo
+→ Update trạng thái vào Sheet
+
+3. LOGIC CHỌN CONTENT
+Tool phải ưu tiên theo hiệu suất thực tế của từng Page, không chỉ nhìn engagement bài nguồn.
+Ví dụ:
+Page A đang chạy NASCAR và các bài về Kyle Busch có mắt đọc/reach tốt
+→ các slot tiếp theo ưu tiên tiếp content Kyle Busch.
+Page B cùng KEY NASCAR nhưng Chase Elliott đang tốt hơn
+→ Page B ưu tiên Chase Elliott.
+Logic:
+Đúng KEY trước
+→ sau đó ưu tiên nhân vật/chủ đề Page đang có tín hiệu tốt
+→ nếu không có content phù hợp mới lấy bài khác cùng KEY.
+Analytics cần lưu theo:
+Page + Post + KEY + Nhân vật/Chủ đề + Views/Mắt đọc + Reach + Engagement
+
+4. XỬ LÝ CONTENT
+Hướng 1 — Ảnh → Reels
+Ảnh nguồn → tạo Reels → caption mới → đăng Facebook
+Có thể dùng zoom, pan, motion, ghép ảnh hoặc template video có sẵn.
+Hướng 2 — Ảnh → Ảnh
+Ảnh nguồn → chỉnh lại ảnh → caption mới → đăng Facebook
+Caption phải được viết lại theo hướng:
+Hook → nội dung → tạo tò mò → CTA xem link trong comment.
+Đồng thời AI viết một bài báo đầy đủ từ cùng nội dung đó để đăng lên Web.
+
+5. ĐĂNG WEB + FACEBOOK
+Web
+n8n gọi API:
+Article + Media → Website API → trả Article URL
+Chỉ khi Web đăng thành công mới tiếp tục đăng Facebook.
+Facebook
+n8n gọi GPM Login:
+Mở đúng GPM Profile → vào đúng Page → upload ảnh/Reels → nhập caption → đăng bài
+Sau đó:
+Lấy Post URL/ID → comment link bài Web bằng GPM Login hoặc API.
+
+6. SHEET QUẢN LÝ
+Cần tối thiểu 4 nhóm dữ liệu:
+PAGE CONFIG
+Page
+KEY
+Format: Image/Reels
+GPM Profile
+Website
+Khung giờ đăng
+SOURCE CONFIG
+KEY
+Facebook nguồn
+CONTENT POOL
+Content ID
+KEY
+Nhân vật/chủ đề
+Source
+Caption
+Media
+Status
+PAGE PERFORMANCE
+Page
+Post
+KEY
+Nhân vật/chủ đề
+Views/Mắt đọc
+Reach
+Engagement
+Status cơ bản:
+NEW → READY → LOCKED → PROCESSING → WEB_POSTED → FB_POSTED → DONE / ERROR
+
+TÓM TẮT LOGIC TOOL
+LUỒNG A
+Facebook nguồn
+→ Crawl content đúng KEY
+→ Chống trùng
+→ Content Pool.
+LUỒNG B
+4 khung giờ/ngày
+→ Chọn Page
+→ Đọc KEY
+→ Đọc Analytics Page
+→ Xem nhân vật/chủ đề nào đang chạy tốt
+→ Chọn content phù hợp
+→ Khóa bài
+→ Rewrite Caption
+→ Viết bài báo
+→ Chỉnh ảnh / tạo Reels
+→ Post Web bằng API
+→ Post Facebook bằng GPM Login
+→ Comment link bài Web
+→ Update Sheet.
+Điểm quan trọng nhất: tool không chọn bài chỉ dựa vào engagement nguồn; phải bám theo Analytics thực tế của từng Page và nếu một nhân vật/chủ đề đang chạy tốt thì ưu tiên tiếp tục đánh nhân vật/chủ đề đó.
+
+promt viết lại caption:
+
+PROMPT VIẾT LẠI CAPTION FACEBOOK VIRAL – HUMAN & VARIED
+Tôi sẽ đưa cho bạn 1 caption gốc.
+Hãy viết lại caption đó thành 3 phiên bản tiếng Anh khác nhau rõ rệt, với mục tiêu tăng khả năng giữ chân người đọc, tạo tò mò cực độ và cảm xúc mạnh trên Facebook.
+NGUYÊN TẮC BẮT BUỘC
+Giữ nguyên:
+Nhân vật chính
+Sự kiện chính
+Mối quan hệ giữa các nhân vật
+Xung đột chính
+Twist hoặc chi tiết gây tò mò quan trọng
+Cảm xúc và trọng tâm của caption gốc
+Không được tự bịa thêm sự kiện, nhân vật, phát ngôn, hậu quả hoặc tuyến drama mới.
+Có thể thay đổi mạnh:
+Cách mở đầu
+Thứ tự kể
+Nhịp câu
+Cách xuống dòng
+Góc nhấn mạnh
+Độ dài
+Cách tạo cliffhanger
+CTA
+Số lượng icon
+Cách đặt câu hỏi
+Không chỉ thay từ đồng nghĩa.
+Mỗi phiên bản phải có cảm giác như một người khác nhau viết lại cùng một câu chuyện.
+
+PHONG CÁCH
+Viết giống caption Facebook storytelling/news drama tự nhiên:
+Có cảm xúc
+Có nhịp nhanh chậm
+Có câu ngắn xen câu dài
+Không quá trau chuốt
+Không viết như bài báo trung lập
+Không dùng quá nhiều từ sáo rỗng kiểu AI
+Không lạm dụng “shocking”, “stunned”, “everyone is talking”, “internet exploded” nếu caption gốc không cần
+Không cố nhồi drama vào mọi câu
+Ưu tiên cảm giác:
+“Có chuyện gì đó vừa xảy ra — và còn một phần quan trọng người đọc chưa biết.” nhưng cap phải thật hấp dẫn tò mò
+
+QUAN TRỌNG: KHÔNG VIẾT THEO 1 FORM CỐ ĐỊNH
+Không bắt buộc cả 3 bản đều phải:
+Hook → Drama → Reaction → Question → CTA.
+Hãy linh hoạt.
+Ví dụ:
+Version 1: mở thẳng bằng khoảnh khắc gây sốc/HOOk
+Version 2: mở bằng một câu rất ngắn hoặc lời thoại( tự chế )/hành động đáng chú ý.
+Version 3: mở từ hậu quả rồi mới quay lại nguyên nhân.
+Hoặc dùng cấu trúc khác nếu phù hợp với caption.
+Ba phiên bản phải khác nhau ngay từ 2–3 dòng đầu.
+
+ĐỘ DÀI
+Tự thay đổi độ dài giữa các phiên bản.
+Ví dụ:
+Một bản khoảng 50–80 từ
+Một bản khoảng 90–130 từ
+Một bản khoảng 140–200 từ
+Không cần lần nào cũng theo đúng thứ tự này.
+Nếu caption gốc rất ngắn thì không cố kéo dài vô lý.
+
+HOOK
+Hook phải lấy từ chi tiết mạnh nhất có thật trong caption gốc.
+Có thể dùng:
+Một câu tuyên bố mạnh
+Một khoảnh khắc bất ngờ
+Một câu hỏi
+Một hành động
+Một hậu quả
+Một sự đối lập
+Một câu thoại có sẵn trong caption
+Bắt đầu giữa cao trào
+Bắt đầu bằng điều mà người đọc chưa hiểu ngay
+Không dùng cùng một kiểu hook cho cả 3 phiên bản.
+Không mặc định lúc nào cũng mở bằng:
+“BREAKING:”
+“JUST IN:”
+“THIS JUST HAPPENED:”
+Chỉ dùng khi thực sự hợp vibe.
+
+NHỊP VIẾT
+Hãy chủ động làm caption có nhịp tự nhiên.
+Có lúc:
+Câu rất ngắn.
+Rồi một câu dài hơn để kể chuyện.
+Sau đó dừng lại ở đúng điểm khiến người đọc muốn đọc tiếp.
+Không để tất cả câu có chiều dài giống nhau.
+Không chia paragraph quá đều như một template.
+
+FORMAT
+Ba phiên bản phải có format khác nhau.
+Có thể luân phiên:
+Viết liền thành 1 khối
+Enter 1 lần
+Chia 2–3 đoạn
+Hook đứng riêng một dòng
+Hook nằm chung với đoạn đầu
+Có emoji / không emoji
+Emoji: 0–3 icon mỗi caption, dùng linh hoạt.
+Không spam 🚨🔥😱👇 trong mọi phiên bản.
+
+TÒ MÒ & CLIFFHANGER
+Không kể hết mọi thứ ngay trong caption.
+Nếu caption gốc cố tình giữ lại một phần thông tin, hãy giữ cách “open loop” đó.
+Cuối caption phải khiến người đọc có cảm giác:
+“Tôi cần biết chuyện gì xảy ra sau đó.”, hoặc 1 câu hỏi dẫn dắt sao cho ng đọc thật tò mò
+Nhưng CTA phải tự nhiên và thay đổi.
+Ví dụ về tinh thần CTA:
+Full story in the comments.
+What happened next changed the entire situation.
+The part fans are debating most is below.
+And his next response is the part nobody expected.
+See what happened next below.
+The full exchange is in the comments.
+Please watch it before it gets deleted; it's pinned in the first comment.
+Không copy nguyên những câu này liên tục.
+
+TẠO CẢM GIÁC TỰ NHIÊN
+Tránh các dấu hiệu viết quá máy móc:
+3 caption cùng số đoạn
+3 caption cùng kiểu hook
+3 caption cùng CTA
+Luôn có một câu hỏi ở đoạn áp chót
+Luôn dùng dấu “…”
+Luôn dùng chữ IN HOA
+Luôn có 3 emoji
+Luôn dùng cùng một nhóm từ viral
+Câu nào cũng cố tạo drama
+Cho phép một chút không hoàn hảo trong nhịp viết nếu nó khiến caption tự nhiên hơn.
+
+KIỂM TRA TRƯỚC KHI TRẢ KẾT QUẢ
+Trước khi xuất caption, tự kiểm tra:
+Tôi có thêm tình tiết không tồn tại trong bản gốc không?
+Ba bản có mở đầu đủ khác nhau không?
+Tôi có đang dùng lại cùng một cấu trúc không?
+Caption có nghe tự nhiên khi đọc thành tiếng không?
+Có câu nào nghe quá “AI/corporate” không?
+Tôi đã giữ lại đúng phần tò mò của caption gốc chưa?
+CTA có đủ mạnh nhưng không quá gượng không?
+Nếu có vấn đề, tự sửa trước khi xuất.
+
+OUTPUT
+Chỉ trả về:
+VERSION 1
+[caption]
+VERSION 2
+[caption]
+VERSION 3
+[caption]
+Không giải thích cách viết.
+Không phân tích caption.
+Không thêm ghi chú.
+CAPTION GỐC:
+[PASTE CAPTION HERE]
+
+
+Promt viết lại bài báo:
+
+"ĐỌC ĐÚNG BÀI VIẾT TÔI ĐƯA SAU ĐÂY:
+
+
+
+Viết cho tôi một bài viết tiếng Anh dài 1500–1700 CHUẨN SEO từ dựa trên nội dung này. Bài viết phải được chia ra 7–8 đề mục(ko đánh số nhé), mỗi đề mục gồm khoảng 3–5 đoạn văn ngắn, không viết dài lan man, không dồn chữ một cục nhưng cũng không tách câu quá lẻ tẻ.
+Bài viết này sẽ là bản full content của nội dung tôi cung cấp, nên tự sáng tạo thêm tình tiết, chi tiết câu chuyện từ phần đó và nghĩ ra một cái kết hợp lý cho câu chuyện.
+
+
+YÊU CẦU:
+
+
+
+Phong cách kể truyện, story
+Không thêm icon.
+
+Có mở bài, nội dung chi tiết theo các đề mục, và kết luận hợp lý.
+
+Không cần phải là sự thật, chỉ là content/storytelling.
+
+Giữa các đoạn, để double space để bài đọc dễ dàng."
+
+
+- Nội dung phải phù hợp với chính sách quảng cáo, tránh các yếu tố dễ bị Google hạn chế phân phối.
+
+- Không sử dụng nội dung 18+, tình dục trực diện, từ ngữ miệt thị chủng tộc (bao gồm n-word), hoặc nội dung kích động thù ghét.
+
+- Không mô tả quá chi tiết cảnh bạo lực, máu me, thương tích nghiêm trọng, hành hạ hoặc tổn thương trẻ em.
+
+- Nếu câu chuyện có xung đột, hãy tập trung vào cảm xúc, tâm lý nhân vật, sự kiện và hậu quả thay vì mô tả gây sốc.
+
+- Viết tự nhiên như một bài báo/storytelling thực tế, không cố tình kéo dài nội dung, lặp ý hoặc nhồi từ khóa.
+
+- Ưu tiên trải nghiệm người đọc, nội dung có giá trị và giữ chân người xem.

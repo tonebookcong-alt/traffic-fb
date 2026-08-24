@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Facebook Scraper — Bảng điều khiển</title>
+<style>
+  :root {
+    --bg: #f5f7fa; --card: #ffffff; --border: #e2e8f0;
+    --primary: #1F4E78; --accent: #2b6cb0; --text: #1e293b; --muted: #64748b;
+    --cao-bg: #C6EFCE; --cao-tx: #006100; --tb-bg: #FFEB9C; --tb-tx: #9C6500;
+    --thap-bg: #E5E7EB; --thap-tx: #6B7280;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", system-ui, Arial, sans-serif; background: var(--bg); color: var(--text); }
+  header {
+    background: var(--primary); color: #fff; padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .sub { font-size: 12px; opacity: .85; }
+  nav { background: #fff; border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; gap: 4px; }
+  nav button {
+    border: none; background: none; padding: 12px 18px; font-size: 14px; cursor: pointer;
+    color: var(--muted); border-bottom: 3px solid transparent; font-weight: 600;
+  }
+  nav button.active { color: var(--primary); border-bottom-color: var(--primary); }
+  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+  .tab { display: none; }
+  .tab.active { display: block; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 15px; margin-bottom: 12px; color: var(--primary); }
+
+  /* ---- Form ---- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+  input[type=text], input[type=number], textarea, select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 14px; font-family: inherit;
+  }
+  textarea { min-height: 90px; resize: vertical; }
+  .btn {
+    border: none; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600;
+    cursor: pointer; color: #fff; background: var(--accent);
+  }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.stop { background: #c0392b; }
+  .btn.gray { background: #64748b; }
+  .btn.green { background: #1a7f37; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+
+  /* ---- Trạng thái ---- */
+  .chips { display: flex; gap: 10px; flex-wrap: wrap; }
+  .chip { background: #eef2f7; border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: 13px; }
+  .chip b { color: var(--primary); }
+  .hashtag {
+    display: inline-block; background: #e8f0fe; color: #1a56db; border: 1px solid #c6d8f7;
+    border-radius: 999px; padding: 1px 8px; font-size: 12px; margin: 1px 3px 1px 0;
+    white-space: nowrap;
+  }
+  #thong-bao { font-size: 14px; font-weight: 600; margin-top: 10px; }
+  #thong-bao.ok { color: #1a7f37; } #thong-bao.err { color: #c0392b; } #thong-bao.run { color: var(--accent); }
+
+  /* ---- Log ---- */
+  .log {
+    background: #1e293b; color: #cbd5e1; border-radius: 8px; padding: 12px;
+    font-family: Consolas, "Courier New", monospace; font-size: 12px;
+    height: 220px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5;
+  }
+  .log .ok { color: #4ade80; } .log .err { color: #f87171; } .log .info { color: #7dd3fc; }
+
+  /* ---- Bảng ---- */
+  .bang-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    position: sticky; top: 0; background: var(--primary); color: #fff; text-align: left;
+    padding: 8px 10px; font-weight: 600; z-index: 1; white-space: nowrap;
+  }
+  tbody td { padding: 8px 10px; border-top: 1px solid var(--border); vertical-align: top; }
+  tbody tr:hover { background: #f1f5f9; }
+  .so { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .noi-dung { max-width: 420px; white-space: pre-wrap; word-break: break-word; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .badge-CAO { background: var(--cao-bg); color: var(--cao-tx); }
+  .badge-TRUNG_BINH { background: var(--tb-bg); color: var(--tb-tx); }
+  .badge-THAP { background: var(--thap-bg); color: var(--thap-tx); }
+  .badge-na { background: #eef2f7; color: var(--muted); }
+  a.link { color: var(--accent); text-decoration: none; font-weight: 600; }
+  a.link:hover { text-decoration: underline; }
+  .thumbs { display: flex; gap: 4px; flex-wrap: wrap; max-width: 220px; }
+  .thumbs img { width: 54px; height: 54px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid var(--border); }
+
+  .kq-chips .chip b { font-size: 15px; }
+  .kq-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 10px; font-size: 14px; }
+  .live-row-flash { animation: flash 1s; }
+  @keyframes flash { from { background: #e0f2fe; } to { background: transparent; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>📊 Facebook Scraper — Bảng điều khiển</h1>
+    <div class="sub">Cào bài viết (text + ảnh) từ Facebook Page · quan sát trực tiếp · xem kết quả như Excel</div>
+  </div>
+  <div id="trang-thai-nhanh" style="font-size:13px"></div>
+</header>
+
+<nav>
+  <button id="tab-btn-cao" class="active" onclick="chonTab('cao')">🔍 Cào dữ liệu</button>
+  <button id="tab-btn-ket-qua" onclick="chonTab('ket-qua')">📋 Kết quả</button>
+</nav>
+
+<main>
+  <!-- ================= TAB CÀO DỮ LIỆU ================= -->
+  <section id="tab-cao" class="tab active">
+    <div class="card">
+      <h2>⚙️ Cấu hình cào</h2>
+      <div class="grid">
+        <div style="grid-column: span 2">
+          <label for="pages">Danh sách trang (mỗi trang 1 dòng — tên hoặc URL)</label>
+          <textarea id="pages" placeholder="ten-trang-1&#10;https://www.facebook.com/ten-trang-2&#10;ten-trang-3"></textarea>
+        </div>
+        <div><label for="per_page">Số bài mỗi trang</label><input type="number" id="per_page" value="50" min="1"></div>
+        <div><label for="pages_scroll">Số lần cuộn (tối thiểu)</label><input type="number" id="pages_scroll" value="10" min="1"></div>
+        <div><label for="delay">Nghỉ (giây)</label><input type="number" id="delay" value="3" min="0" step="0.5"></div>
+        <div><label for="cookies">File cookies.txt</label><input type="text" id="cookies" value="cookies.txt" placeholder="cookies.txt"></div>
+      </div>
+      <div class="row">
+        <button class="btn" id="btn-bat-dau" onclick="batDau()">▶ Bắt đầu cào</button>
+        <button class="btn stop" id="btn-dung" onclick="dungLai()" disabled>⏹ Dừng</button>
+        <button class="btn gray" id="btn-kiem-tra" onclick="kiemTraCookies()">🔎 Kiểm tra cookies</button>
+        <label class="checkbox"><input type="checkbox" id="no_images"> Không tải ảnh (chỉ lấy link)</label>
+      </div>
+      <div id="thong-bao"></div>
+    </div>
+
+    <div class="card">
+      <h2>📡 Trạng thái trực tiếp</h2>
+      <div class="chips">
+        <div class="chip">Trạng thái: <b id="tt-trang-thai">Chưa chạy</b></div>
+        <div class="chip">Trang hiện tại: <b id="tt-trang">—</b></div>
+        <div class="chip">Bài viết: <b id="tt-so-bai">0</b></div>
+        <div class="chip">Ảnh đã tải: <b id="tt-so-anh">0</b></div>
+      </div>
+      <div class="log" id="log" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <h2>🕒 Bài viết đang cào (mới nhất lên đầu)</h2>
+      <div class="bang-wrap" style="max-height:320px">
+        <table>
+          <thead><tr><th>#</th><th>Trang</th><th>Nội dung</th><th>Ảnh</th><th>Cảm xúc</th><th>Bình luận</th><th>Chia sẻ</th></tr></thead>
+          <tbody id="bang-live"><tr><td colspan="7" class="empty">Chưa có bài nào — bấm "Bắt đầu cào" để xem trực tiếp.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TAB KẾT QUẢ ================= -->
+  <section id="tab-ket-qua" class="tab">
+    <div class="card">
+      <h2>📋 Kết quả các trang đã cào</h2>
+      <div class="kq-tools">
+        <div style="min-width:200px"><label for="loc-trang">Chọn trang</label>
+          <select id="loc-trang" onchange="locKetQua()"></select></div>
+        <div style="min-width:180px"><label for="loc-muc">Lọc theo mức tiềm năng</label>
+          <select id="loc-muc" onchange="locKetQua()">
+            <option value="TAT_CA">Tất cả</option>
+            <option value="CAO">CAO 🔥</option>
+            <option value="TRUNG_BINH">TRUNG_BINH</option>
+            <option value="THAP">THAP</option>
+          </select></div>
+        <div style="flex:1"></div>
+        <button class="btn green" onclick="taiExcel()">📥 Tải file Excel</button>
+        <button class="btn gray" onclick="loadKetQua()">🔄 Làm mới</button>
+      </div>
+      <div class="chips kq-chips">
+        <div class="chip">Tổng bài: <b id="kq-bai">0</b></div>
+        <div class="chip">Tổng cảm xúc: <b id="kq-camxuc">0</b></div>
+        <div class="chip">Tổng bình luận: <b id="kq-binh-luan">0</b></div>
+        <div class="chip">File Excel: <b id="kq-xlsx">—</b></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="bang-wrap">
+        <table>
+          <thead>
+            <tr><th>Ảnh</th><th>Nội dung bài viết</th><th>Cảm xúc</th><th>Bình luận</th><th>Chia sẻ</th><th>Điểm</th><th>Mức tiềm năng</th><th>Link</th></tr>
+          </thead>
+          <tbody id="bang-ket-qua"><tr><td colspan="8" class="empty">Đang tải...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let tatCaKetQua = [];
+let dangChay = false;
+let es = null;
+
+/* ---------------- Tab ---------------- */
+function chonTab(ten) {
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+  $("tab-" + ten).classList.add("active");
+  $("tab-btn-" + ten).classList.add("active");
+  if (ten === "ket-qua") loadKetQua();
+}
+
+/* ---------------- Log ---------------- */
+function ghiLog(text, loai) {
+  const d = document.createElement("div");
+  d.className = loai || "";
+  d.textContent = "[" + new Date().toLocaleTimeString("vi-VN") + "] " + text;
+  $("log").appendChild(d);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+/* ---------------- Luồng sự kiện (SSE) ---------------- */
+function ketNoiSuKien() {
+  if (es) es.close();
+  es = new EventSource("/api/su_kien");
+  es.onmessage = e => {
+    const s = JSON.parse(e.data);
+    switch (s.loai) {
+      case "bat_dau":
+        ghiLog("▶ Bắt đầu cào: " + s.trang_ho.join(", ") + " (" + s.per_page + " bài/trang)", "info");
+        break;
+      case "log":
+        ghiLog(s.noi_dung, "info");
+        break;
+      case "trang_bat_dau":
+        $("tt-trang").textContent = s.page;
+        $("tt-trang-thai").textContent = "Đang cào";
+        ghiLog("→ Bắt đầu trang: " + s.page + (s.gioi_han ? " (tối đa " + s.gioi_han + " bài)" : ""), "info");
+        break;
+      case "post":
+        themDongLive(s);
+        break;
+      case "anh":
+        $("tt-so-anh").textContent = Number($("tt-so-anh").textContent) + 1;
+        break;
+      case "trang_xong":
+        ghiLog("✓ Xong trang " + s.page + ": " + s.so_bai + " bài", "ok");
+        break;
+      case "khong_bai":
+        ghiLog("⚠ Không lấy được bài nào ở trang " + s.page + " (cần cookies hợp lệ!)", "err");
+        break;
+      case "xong":
+        $("tt-trang-thai").textContent = "Hoàn thành";
+        $("tt-trang").textContent = "—";
+        ghiLog("🏁 HOÀN THÀNH: " + s.so_bai + " bài viết.", "ok");
+        // TRẢ NÚT VỀ BÌNH THƯỜNG — trước đây quên nên nút cứ kẹt "đang chạy"
+        dangChay = false;
+        $("btn-bat-dau").disabled = false;
+        $("btn-dung").disabled = true;
+        $("thong-bao").textContent = "✅ Hoàn thành: " + s.so_bai + " bài viết.";
+        $("thong-bao").className = "ok";
+        loadKetQua();
+        break;
+      case "loi":
+        ghiLog("❌ Lỗi: " + s.noi_dung, "err");
+        break;
+    }
+  };
+  es.onerror = () => { /* EventSource tự kết nối lại */ };
+}
+
+function themDongLive(s) {
+  const p = s.post;
+  $("tt-so-bai").textContent = s.stt;
+  $("tt-so-anh").textContent = Number($("tt-so-anh").textContent); // không reset
+  const tr = document.createElement("tr");
+  tr.className = "live-row-flash";
+  const td = (html) => { const t = document.createElement("td"); t.innerHTML = html; return t; };
+  tr.appendChild(td(s.stt));
+  tr.appendChild(td("<b>" + esc(s.page) + "</b>"));
+  const nd = td(esc((p.text || "").slice(0, 160)) + ((p.text || "").length > 160 ? "…" : "") + hashtagHtml(p));
+  nd.className = "noi-dung";
+  tr.appendChild(nd);
+  tr.appendChild(td(p.images_da_tai ? p.images_da_tai.length : (p.images || []).length));
+  tr.appendChild(td('<span class="so">' + soDep(p.likes) + "</span>"));
+  tr.appendChild(td('<span class="so">' + soDep(p.comments) + "</span>"));
+  tr.appendChild(td('<span class="so">' + soDep(p.shares) + "</span>"));
+  $("bang-live").prepend(tr);
+  while ($("bang-live").children.length > 300) $("bang-live").lastElementChild.remove();
+}
+
+/* ---------------- Nút điều khiển ---------------- */
+async function batDau() {
+  const fd = new FormData();
+  fd.append("pages", $("pages").value);
+  fd.append("per_page", $("per_page").value);
+  fd.append("pages_scroll", $("pages_scroll").value);
+  fd.append("delay", $("delay").value);
+  fd.append("cookies", $("cookies").value);
+  fd.append("no_images", $("no_images").checked ? "1" : "0");
+  const r = await fetch("/api/cao", { method: "POST", body: fd });
+  const j = await r.json();
+  if (!j.ok) { ghiLog("⚠ " + j.loi, "err"); return; }
+  dangChay = true;
+  $("btn-bat-dau").disabled = true;
+  $("btn-dung").disabled = false;
+  $("bang-live").innerHTML = '<tr><td colspan="7" class="empty">Đang cào...</td></tr>';
+  $("thong-bao").textContent = "Đang cào...";
+  $("thong-bao").className = "run";
+  $("tt-so-bai").textContent = "0";
+  $("tt-so-anh").textContent = "0";
+  $("tt-trang-thai").textContent = "Bắt đầu";
+}
+
+async function dungLai() {
+  await fetch("/api/dung", { method: "POST" });
+  ghiLog("⏹ Đã gửi lệnh dừng...", "err");
+}
+
+async function kiemTraCookies() {
+  const btn = $("btn-kiem-tra");
+  btn.disabled = true;
+  btn.textContent = "⏳ Đang kiểm tra...";
+  const fd = new FormData();
+  fd.append("cookies", $("cookies").value);
+  try {
+    const r = await fetch("/api/kiem_tra_cookies", { method: "POST", body: fd });
+    const j = await r.json();
+    ghiLog("🔎 Cookies: " + j.noi_dung, j.ok ? "ok" : "err");
+    $("thong-bao").textContent = j.noi_dung;
+    $("thong-bao").className = j.ok ? "ok" : "err";
+  } catch (e) {
+    ghiLog("🔎 Lỗi khi kiểm tra cookies: " + e, "err");
+  }
+  btn.disabled = false;
+  btn.textContent = "🔎 Kiểm tra cookies";
+}
+
+/* ---------------- Kết quả ---------------- */
+async function loadKetQua() {
+  $("bang-ket-qua").innerHTML = '<tr><td colspan="8" class="empty">Đang tải...</td></tr>';
+  try {
+    const r = await fetch("/api/ket_qua");
+    tatCaKetQua = await r.json();
+  } catch (e) {
+    tatCaKetQua = [];
+  }
+  if (!tatCaKetQua.length) {
+    $("bang-ket-qua").innerHTML = '<tr><td colspan="8" class="empty">Chưa có dữ liệu — qua tab "Cào dữ liệu" để bắt đầu. (Cần file du_lieu_*.json có dữ liệu)</td></tr>';
+    $("kq-bai").textContent = "0"; $("kq-camxuc").textContent = "0"; $("kq-binh-luan").textContent = "0";
+    return;
+  }
+
+  const sel = $("loc-trang");
+  const giaTriCu = sel.value;
+  sel.innerHTML = '<option value="TAT_CA">Tất cả trang</option>' +
+    tatCaKetQua.map(k => '<option value="' + esc(k.trang) + '">' + esc(k.trang) + " (" + k.so_bai + " bài)</option>").join("");
+  if (tatCaKetQua.some(k => k.trang === giaTriCu)) sel.value = giaTriCu;
+
+  const xlsx = await fetch("/api/xlsx").then(r => r.ok ? r.headers.get("Content-Disposition") : null).catch(() => null);
+  $("kq-xlsx").textContent = "có ✅";
+  locKetQua();
+}
+
+function locKetQua() {
+  const trang = $("loc-trang").value;
+  const muc = $("loc-muc").value;
+  let ds = [];
+  for (const k of tatCaKetQua) {
+    if (trang !== "TAT_CA" && k.trang !== trang) continue;
+    for (const p of k.posts) ds.push(Object.assign({ _trang: k.trang }, p));
+  }
+  if (muc !== "TAT_CA") ds = ds.filter(p => p.muc_tiem_nang === muc);
+  ds.sort((a, b) => (b.diem_tiem_nang || 0) - (a.diem_tiem_nang || 0));
+
+  const tongCamXuc = ds.reduce((s, p) => s + (p.likes || 0), 0);
+  const tongBl = ds.reduce((s, p) => s + (p.comments || 0), 0);
+  $("kq-bai").textContent = ds.length;
+  $("kq-camxuc").textContent = soDep(tongCamXuc);
+  $("kq-binh-luan").textContent = soDep(tongBl);
+
+  if (!ds.length) {
+    $("bang-ket-qua").innerHTML = '<tr><td colspan="8" class="empty">Không có bài nào khớp bộ lọc.</td></tr>';
+    return;
+  }
+
+  const tbody = $("bang-ket-qua");
+  tbody.innerHTML = "";
+  for (const p of ds) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = anhHtml(p) + noiDungHtml(p) + soHtml(p.likes) + soHtml(p.comments)
+      + soHtml(p.shares) + soHtml(p.diem_tiem_nang) + mucHtml(p) + linkHtml(p);
+    tbody.appendChild(tr);
+  }
+}
+
+function anhHtml(p) {
+  const ds = p.images_da_tai || [];
+  if (!ds.length) return "<td><span style='color:#94a3b8'>—</span></td>";
+  const thumbs = ds.slice(0, 4).map(path => {
+    const enc = path.split("/").map(encodeURIComponent).join("/");
+    return '<a href="/anh/' + enc + '" target="_blank"><img src="/anh/' + enc + '" loading="lazy" onerror="this.style.display=\'none\'"></a>';
+  }).join("");
+  return '<td><div class="thumbs">' + thumbs + (ds.length > 4 ? "<span style='font-size:11px;color:var(--muted)'>+" + (ds.length - 4) + "</span>" : "") + "</div></td>";
+}
+function noiDungHtml(p) {
+  const trang = p._trang ? '<span style="font-size:11px;color:var(--muted)">' + esc(p._trang) + " · " + esc(p.post_id) + "</span><br>" : "";
+  // Hashtag hiển thị NGAY TRONG ô nội dung, xuống dòng phía dưới bài viết
+  return '<td><div class="noi-dung">' + trang + esc(p.text || "(không có văn bản)")
+    + hashtagHtml(p) + "</div></td>";
+}
+function hashtagHtml(p) {
+  const ds = p.hashtags || [];
+  if (!ds.length) return "";
+  return '<div style="margin-top:6px">' + ds.slice(0, 12).map(h => '<span class="hashtag">' + esc(h) + "</span>").join("")
+    + (ds.length > 12 ? "<span style='font-size:11px;color:var(--muted)'>+" + (ds.length - 12) + "</span>" : "") + "</div>";
+}
+function soHtml(v) { return '<td><span class="so">' + soDep(v) + "</span></td>"; }
+function mucHtml(p) {
+  const muc = p.muc_tiem_nang || "—";
+  const cls = ["CAO", "TRUNG_BINH", "THAP"].includes(muc) ? muc : "na";
+  return '<td><span class="badge badge-' + cls + '">' + esc(muc) + "</span></td>";
+}
+function linkHtml(p) {
+  return p.post_url ? '<td><a class="link" href="' + esc(p.post_url) + '" target="_blank">Mở bài viết ↗</a></td>'
+    : "<td><span style='color:#94a3b8'>—</span></td>";
+}
+
+function taiExcel() { location.href = "/api/xlsx"; }
+
+/* ---------------- Tiện ích ---------------- */
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function soDep(v) {
+  const n = Number(v || 0);
+  return n.toLocaleString("vi-VN");
+}
+
+/* ---------------- Khởi động ---------------- */
+async function khoiDong() {
+  ketNoiSuKien();
+  const tt = await fetch("/api/trang_thai").then(r => r.json());
+  if (tt.dang_chay) {
+    dangChay = true;
+    $("btn-bat-dau").disabled = true;
+    $("btn-dung").disabled = false;
+    $("tt-trang-thai").textContent = "Đang cào";
+    $("tt-trang").textContent = tt.trang_hien_tai || "—";
+    $("tt-so-bai").textContent = tt.so_bai;
+    $("tt-so-anh").textContent = tt.so_anh;
+    $("thong-bao").textContent = tt.thong_bao || "Đang cào...";
+    $("thong-bao").className = "run";
+  }
+  loadKetQua();
+}
+khoiDong();
+</script>
+</body>
+</html>

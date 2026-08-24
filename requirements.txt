@@ -1,0 +1,6 @@
+facebook-scraper>=0.2.59
+lxml_html_clean
+requests
+openpyxl
+flask
+playwright

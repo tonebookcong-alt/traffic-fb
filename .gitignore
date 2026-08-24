@@ -1,0 +1,21 @@
+# Sensitive session data
+cookies.txt
+*.env
+.env*
+
+# Python cache & virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Scraped output data / exports
+du_lieu.json
+du_lieu_exel/
+du_lieu_images/
+*.xlsx
+*.csv
+*.log
