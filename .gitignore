@@ -22,3 +22,7 @@ google_sheets_creds.json
 *.csv
 *.log
 
+
+# Generated output & IDE directories
+du_lieu_fb/
+.claude/

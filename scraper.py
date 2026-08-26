@@ -501,7 +501,7 @@ def run_cào(trang_ho: list, pages: int = 3, limit: int = 0, per_page: int = 0,
     """
     print(f"=== Cào {len(trang_ho)} trang: {', '.join(trang_ho)} ===")
     print(f"    {pages} lần cuộn/trang, tối đa {per_page or limit or 'không'} bài/trang")
-    cookies_dict = load_cookies(cookies)
+    cookies_playwright = cao_fb.doc_cookies(cookies) if cookies else None
 
     # 1 lần cào = 1 giờ cào — dùng chung cho cả thư mục ảnh và tên file Excel
     thoi_gian_cao = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -515,14 +515,9 @@ def run_cào(trang_ho: list, pages: int = 3, limit: int = 0, per_page: int = 0,
     ket_qua = {}
     for i, page in enumerate(trang_ho):
         print(f"\n----- Trang {i + 1}/{len(trang_ho)}: {page} -----")
-        ten_file = output if len(trang_ho) == 1 else f"{output}_{page}"
+        page_id_sach = an_toan_ten_file(in_tu_page(page))
+        ten_file = output if len(trang_ho) == 1 else f"{output}_{page_id_sach}"
 
-        cookies_playwright = None
-        if cookies_dict:
-            cookies_playwright = [
-                {"name": k, "value": v, "domain": ".facebook.com", "path": "/"}
-                for k, v in cookies_dict.items()
-            ]
         posts = cào_mot_trang(page, pages, per_page or limit, thumuc_anh, delay,
                               callback=callback, stop_flag=stop_flag,
                               cookies_playwright=cookies_playwright)

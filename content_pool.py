@@ -50,6 +50,19 @@ def hash_caption(text: str) -> str:
 # là trùng — tránh 2 bài khác nhau mà câu ngắn lại nằm trong câu dài.
 NGUONG_CHUA = 40
 
+# Dung sai ở ĐUÔI bản ngắn khi so prefix: Facebook cắt bản thu gọn GIỮA TỪ
+# ('...mình dâ… Xem thêm' vs '...mình dâng trào...') nên không so khớp tuyệt đối.
+DUNG_SAI_CAT = 5
+
+
+def _bo_xem_them(s: str) -> str:
+    """Bỏ cụm 'xem thêm' ở cuối bản thu gọn (chuan_hoa_text đã biến
+    '… Xem thêm' → ' xem thêm')."""
+    s = s.strip()
+    if s.endswith("xem thêm"):
+        s = s[: -len("xem thêm")].strip()
+    return s
+
 
 def _la_cung_bai(moi: str, cu: str) -> bool:
     """2 caption đã chuẩn hoá có phải cùng 1 bài không?
@@ -60,14 +73,22 @@ def _la_cung_bai(moi: str, cu: str) -> bool:
         return False
     if moi == cu:
         return True
-    if len(moi) >= NGUONG_CHUA and moi in cu:
-        return True
-    if len(cu) >= NGUONG_CHUA and cu in moi:
-        return True
-    return False
+    ngan, dai = (moi, cu) if len(moi) < len(cu) else (cu, moi)
+    if len(ngan) < NGUONG_CHUA:
+        return False
+    ngan = _bo_xem_them(ngan)
+    if len(ngan) < NGUONG_CHUA:
+        return False
+    khop = 0
+    for i in range(min(len(ngan), len(dai))):
+        if ngan[i] != dai[i]:
+            break
+        khop += 1
+    # khớp từ đầu, khác nhau chỉ ở đuôi bản ngắn (chỗ Facebook cắt '… Xem thêm')
+    return khop >= len(ngan) - DUNG_SAI_CAT and khop >= NGUONG_CHUA
 
 
-def chong_trung(cac_bai: list, store=None) -> list:
+def chong_trung(cac_bai: list, store=None, phien: str = "") -> list:
     """Lọc danh sách bài (dict có 'post_id' và 'text') — bỏ bài đã có trong pool.
 
     Tiêu chí trùng:
@@ -76,9 +97,25 @@ def chong_trung(cac_bai: list, store=None) -> list:
       2. caption đã chuẩn hoá trùng hoặc nằm trong caption cũ (bản Xem thêm)
 
     Nếu trùng mà bản mới ĐẦY ĐỦ hơn hẳn → cập nhật caption/link/tương tác
-    của dòng cũ (giữ nguyên trạng thái, không thêm dòng mới)."""
+    của dòng cũ (giữ nguyên trạng thái, không thêm dòng mới).
+
+    `phien`: phiên cào hiện tại. Khi gặp bài ĐÃ CÓ trong pool (trùng), ghi nhận
+    vào dòng cũ: `So_lan_trung` += 1 và thêm phiên này vào `Cac_phien_gap` — để bài
+    vẫn hiện trong phiên cào hiện tại (đánh dấu trùng) mà không mất phiên gốc."""
     store = store or lay_store()
     pool = store.lay_tat_ca("CONTENT POOL")
+
+    def _ghi_trung(dong):
+        dong["So_lan_trung"] = int(dong.get("So_lan_trung") or 0) + 1
+        cac_phien = dong.get("Cac_phien_gap")
+        if cac_phien is None:
+            p_goc = str(dong.get("Phien_cao") or "").strip()
+            cac_phien = [p_goc] if p_goc else []
+        if not isinstance(cac_phien, list):
+            cac_phien = [str(cac_phien)]
+        if phien and phien not in cac_phien:
+            cac_phien.append(phien)
+        dong["Cac_phien_gap"] = cac_phien
 
     moi = []
     for bai in cac_bai:
@@ -106,7 +143,9 @@ def chong_trung(cac_bai: list, store=None) -> list:
                 dong["Cảm xúc"] = bai.get("likes") or dong.get("Cảm xúc") or 0
                 dong["Bình luận"] = bai.get("comments") or dong.get("Bình luận") or 0
                 dong["Chia sẻ"] = bai.get("shares") or dong.get("Chia sẻ") or 0
-                store.cap_nhat_dong("CONTENT POOL", chi_so, dong)
+
+            _ghi_trung(dong)
+            store.cap_nhat_dong("CONTENT POOL", chi_so, dong)
             break
 
         if not trung:
@@ -118,8 +157,11 @@ def chong_trung(cac_bai: list, store=None) -> list:
 # Thêm content vào pool
 # ===================================================================
 def them_content(bai: dict, key: str, nhan_vat: str, source: str,
-                 store=None) -> dict:
-    """Thêm 1 bài vào CONTENT POOL, status = NEW. Trả về dòng đã lưu."""
+                 store=None, phien: str = "") -> dict:
+    """Thêm 1 bài vào CONTENT POOL, status = NEW. Trả về dòng đã lưu.
+
+    `phien` = thời điểm cào (nhãn phiên cào), để nhóm bài theo lần cào trong Web UI.
+    """
     store = store or lay_store()
     pid = str(bai.get("post_id") or "")
     text = (bai.get("text") or "").strip()
@@ -142,6 +184,9 @@ def them_content(bai: dict, key: str, nhan_vat: str, source: str,
         "Bài báo": "",
         "Article URL": "",
         "Status": "NEW",
+        "Phien_cao": phien,
+        "So_lan_trung": 0,
+        "Cac_phien_gap": [phien] if phien else [],
         "Ghi chú": "",
     }
     store.them_dong("CONTENT POOL", dong)

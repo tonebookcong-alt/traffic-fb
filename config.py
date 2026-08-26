@@ -34,6 +34,20 @@ MAC_DINH = {
         "delay": 3.0,
     },
     "content_han_ngay": 7,
+    "media": {
+        "logo_path": "",                # file logo PNG (trống = bỏ logo)
+        "logo_position": "bottom_left",  # top_left | top_right | bottom_left | bottom_right
+        "logo_scale": 0.17,             # chiều rộng logo = 17% chiều rộng ảnh
+        "max_size": 1080,               # cạnh dài tối đa (giữ tỷ lệ, KHÔNG crop)
+        "border_style": "gradient",     # none | solid | gradient
+        "border_width": 30,             # độ dày viền (px)
+        "border_color": "#003C8C",      # viền solid hoặc gradient màu đậm
+        "border_color2": "#007ACC",     # gradient màu giữa
+        "border_color3": "#FFFFFF",     # gradient màu nhạt
+        "enhance_contrast": 1.10,       # chỉnh tương phản — né FB quét trùng
+        "enhance_brightness": 1.05,     # chỉnh độ sáng
+        "enhance_color": 1.22,          # chỉnh độ màu
+    },
 }
 
 DUONG_DAN = os.path.dirname(os.path.abspath(__file__))

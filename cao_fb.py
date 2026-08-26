@@ -27,8 +27,24 @@ DEFAULT_UA = (
 NGUONG_GHEP = 2500
 
 
+def _map_same_site(val):
+    """Chuyển sameSite từ định dạng trình duyệt sang Playwright.
+    Trình duyệt export: 'no_restriction'/'lax'/'strict'/null
+    Playwright cần: 'None'/'Lax'/'Strict'
+    """
+    if not val or val == "null":
+        return "Lax"  # mặc định an toàn
+    v = str(val).lower().replace("_", "")
+    if v in ("norestriction", "none"):
+        return "None"
+    if v == "strict":
+        return "Strict"
+    return "Lax"
+
+
 def doc_cookies(path: str):
-    """Đọc cookies.txt -> list cookies cho Playwright (giống scraper.py)."""
+    """Đọc cookies.txt -> list cookies cho Playwright.
+    Truyền đủ httpOnly, secure, sameSite để Facebook nhận phiên đăng nhập."""
     if not path:
         return []
     with open(path, "r", encoding="utf-8") as f:
@@ -39,10 +55,21 @@ def doc_cookies(path: str):
         try:
             ds = json.loads(noi_dung)
             if isinstance(ds, list):
-                return [{"name": c["name"], "value": c["value"],
-                         "domain": c.get("domain", ".facebook.com"),
-                         "path": c.get("path", "/")}
-                        for c in ds if isinstance(c, dict) and c.get("name")]
+                ket_qua = []
+                for c in ds:
+                    if not isinstance(c, dict) or not c.get("name"):
+                        continue
+                    cookie = {
+                        "name": c["name"],
+                        "value": c["value"],
+                        "domain": c.get("domain", ".facebook.com"),
+                        "path": c.get("path", "/"),
+                        "httpOnly": bool(c.get("httpOnly", False)),
+                        "secure": bool(c.get("secure", True)),
+                        "sameSite": _map_same_site(c.get("sameSite")),
+                    }
+                    ket_qua.append(cookie)
+                return ket_qua
         except json.JSONDecodeError:
             pass
     cookies = {}
@@ -59,7 +86,8 @@ def doc_cookies(path: str):
                 if "=" in cap:
                     k, v = cap.split("=", 1)
                     cookies[k.strip()] = v.strip()
-    return [{"name": k, "value": v, "domain": ".facebook.com", "path": "/"}
+    return [{"name": k, "value": v, "domain": ".facebook.com", "path": "/",
+             "httpOnly": False, "secure": True, "sameSite": "None"}
             for k, v in cookies.items()]
 
 
@@ -159,11 +187,74 @@ def _post_id_tu_link(link: str) -> str | None:
     return m.group(1) if m else None
 
 
+def lam_sach_text_bai(text: str) -> str:
+    """Bỏ rác Facebook cào dính vào caption.
+
+    - Đầu: tên trang dính liền + nhãn AI + thời gian + phạm vi hiển thị
+      (VD: "Chiefs Dynasty FansNội dung do AI tạo · 11 giờ · Đã chia sẻ với Công khai…")
+    - Đuôi: số tương tác dính sau link
+      (VD: "\u2026/Tất cả cảm xúc:2632ThíchBình luận")
+
+    Caption thường không khớp → trả về giữ nguyên (không cắt nhầm nội dung)."""
+    if not text:
+        return ""
+    t = re.sub(r"\s+", " ", text.replace("\xa0", " ")).strip()
+
+    # Đầu: chỉ khi nhãn AI nằm sát đầu (tên trang ngắn phía trước) mới coi là rác
+    m = re.search(r"Nội dung do AI tạo", t)
+    if m and m.start() <= 80:
+        sau = t[m.end():]
+        m2 = re.match(
+            r"\s*·\s*.*?\s*·\s*(?:Đã chia sẻ với\s+)?"
+            r"(?:Công khai|Bạn bè|Chỉ mình tôi|Những người bạn đã chọn)\s*",
+            sau, re.DOTALL)
+        t = sau[m2.end():].lstrip() if m2 else sau.strip()
+
+    # Đuôi: bỏ ".../Tất cả cảm xúc:<số>ThíchBình luận"
+    t = re.sub(r"/?\s*Tất cả cảm xúc:\s*\d+\s*(?:Thích|Bình luận|Chia sẻ)+\s*$", "", t)
+    return re.sub(r"\s+", " ", t).strip()
+
+
 def lay_du_lieu_dom(page, so_bai: int) -> list:
     """Đọc toàn bộ bài viết hiện có trong DOM, trả về list dict."""
     js = """
     () => {
       const rectTop = el => Math.round(el.getBoundingClientRect().top);
+
+      // Ảnh FB: FB lazy-load nên naturalWidth có thể = 0 lúc đọc (chưa decode).
+      // - anhFb(): lấy link THẬT từ src / data-src / srcset (chọn bản lớn nhất) —
+      //   vì src lúc mới render đôi khi là placeholder nhỏ, ảnh thật nằm ở srcset.
+      // - kichThuoc(): đo bằng naturalWidth LẪN kích thước đang hiển thị
+      //   (getBoundingClientRect) để KHÔNG loại nhầm ảnh chưa tải xong.
+      const co_fbcdn = (u) => u && u.includes('fbcdn');
+      const anhFb = (el) => {
+        const cac = [];
+        const them = (u) => { if (co_fbcdn(u)) cac.push(u); };
+        if (el.tagName === 'VIDEO') {
+          // Video/reel của FB: ảnh bìa nằm ở `poster` (src là file .mp4 — không lấy nhầm).
+          them(el.getAttribute('poster') || '');
+          if (!cac.length) them(el.getAttribute('src') || '');
+        } else {
+          them(el.getAttribute('src') || '');
+          them(el.getAttribute('data-src') || '');
+          const srcset = el.getAttribute('srcset') || '';
+          srcset.split(',').forEach((p) => them((p.trim().split(/\\s+/)[0] || '')));
+          them(el.currentSrc || '');
+        }
+        return cac[cac.length - 1] || '';
+      };
+      // Ảnh FB đôi khi là CSS background (link-preview / cover video) — không có thẻ <img>
+      const anhNen = (el) => {
+        const st = el.getAttribute('style') || '';
+        const m = st.match(/background(?:-image)?\\s*:\\s*url\\(['"]?([^'")]+)/i);
+        return (m && co_fbcdn(m[1])) ? m[1] : '';
+      };
+      const kichThuoc = (img) => {
+        const nw = img.naturalWidth || 0;
+        const bw = Math.round(img.getBoundingClientRect().width) || 0;
+        const at = parseInt(img.getAttribute('width') || '0') || 0;
+        return Math.max(nw, bw, at);
+      };
 
       // --- 1. Text bài ---
       const previews = [];
@@ -172,12 +263,20 @@ def lay_du_lieu_dom(page, so_bai: int) -> list:
         // ảnh media: trong block cha, bỏ avatar nhỏ và ảnh nằm trên text
         let n = el, imgs = [];
         for (let k = 0; k < 14 && n; k++) {
-          n.querySelectorAll('img').forEach(img => {
-            const u = img.src || '';
-            if (!u.includes('fbcdn')) return;
-            const w = img.naturalWidth || parseInt(img.getAttribute('width') || '0') || 0;
-            if (w < 60) return;
-            if (rectTop(img) < top - 80) return;
+          n.querySelectorAll('img, video').forEach(node => {
+            const u = anhFb(node);
+            if (!u) return;
+            const w = kichThuoc(node);
+            if (w < 60) return;                      // avatar / icon / placeholder nhỏ
+            if (rectTop(node) < top - 80) return;    // ảnh nằm trên text = avatar/header
+            if (imgs.indexOf(u) === -1) imgs.push(u);
+          });
+          n.querySelectorAll('[style*="background"]').forEach(node => {
+            const u = anhNen(node);
+            if (!u) return;
+            const w = kichThuoc(node);
+            if (w < 100) return;                     // bỏ decor/cover nhỏ
+            if (rectTop(node) < top - 80) return;    // ảnh nằm trên text = avatar/header
             if (imgs.indexOf(u) === -1) imgs.push(u);
           });
           n = n.parentElement;
@@ -210,15 +309,31 @@ def lay_du_lieu_dom(page, so_bai: int) -> list:
           if (n) n.remove();
         });
         const imgs = [];
-        el.querySelectorAll('img').forEach(img => {
-          const u = img.src || '';
-          if (!u.includes('fbcdn')) return;
-          const w = img.naturalWidth || parseInt(img.getAttribute('width') || '0') || 0;
+        el.querySelectorAll('img, video').forEach(node => {
+          const u = anhFb(node);
+          if (!u) return;
+          const w = kichThuoc(node);
           if (w < 60) return;
           if (imgs.indexOf(u) === -1) imgs.push(u);
         });
-        articles.push({top, text: (clone.innerText || '').trim(), imgs,
-                       toolbarText});
+        el.querySelectorAll('[style*="background"]').forEach(node => {
+          const u = anhNen(node);
+          if (!u) return;
+          const w = kichThuoc(node);
+          if (w < 100) return;                       // bỏ decor/cover nhỏ
+          if (rectTop(node) < top - 80) return;      // ảnh nằm trên text = avatar/header
+          if (imgs.indexOf(u) === -1) imgs.push(u);
+        });
+        // Ưu tiên text của container tin nhắn [data-ad-comet-preview] — bản SẠCH,
+        // không dính tên trang + metadata AI ("Chiefs Dynasty FansNội dung do AI tạo · n ngày ·")
+        // như clone.innerText. Vẫn cần clone để gỡ toolbar trước khi đo.
+        var noi_dung = '';
+        clone.querySelectorAll('[data-ad-comet-preview]').forEach(function(m) {
+          var mt = (m.innerText || '').trim();
+          if (mt.length > noi_dung.length) noi_dung = mt;
+        });
+        var text_bai = noi_dung || (clone.innerText || '').trim();
+        articles.push({top, text: text_bai, imgs, toolbarText});
       });
 
       // --- 2. Thanh tương tác (toolbar): cảm xúc / bình luận / chia sẻ ---
@@ -298,6 +413,9 @@ def lay_du_lieu_dom(page, so_bai: int) -> list:
     if not toolbars and articles:
         # Layout B: không có thanh tương tác riêng — mỗi [role="article"] = 1 bài
         for art in articles:
+            # Bỏ qua article rỗng (sidebar, widget không phải bài viết)
+            if not art.get("text", "").strip():
+                continue
             link_tt, chi_so_l = tim_gan_nhat(links, art["top"], toi_da=700,
                                              da_dung=dung_link, cho_phep_duoi=2500)
             if link_tt is not None:
@@ -317,7 +435,7 @@ def lay_du_lieu_dom(page, so_bai: int) -> list:
                 "post_id": post_id,
                 "time": time_obj.isoformat() if time_obj else
                         (time_tt["label"] if time_tt else ""),
-                "text": art["text"],
+                "text": lam_sach_text_bai(art["text"]),
                 "images": art["imgs"],
                 "post_url": link_tt["href"] if link_tt else "",
                 "likes": likes,
@@ -362,7 +480,7 @@ def lay_du_lieu_dom(page, so_bai: int) -> list:
             "post_id": post_id,
             "time": time_obj.isoformat() if time_obj else
                     (time_tt["label"] if time_tt else ""),
-            "text": bai_text["text"],
+            "text": lam_sach_text_bai(bai_text["text"]),
             "images": bai_text["imgs"],
             "post_url": link_tt["href"] if link_tt else "",
             "likes": likes,
@@ -393,11 +511,14 @@ def cào_trang(page_name: str, so_bai: int, so_lan_cuon: int, delay: float,
             if cookies:
                 ctx.add_cookies(cookies)
             page = ctx.new_page()
-            # profile.php?id=... là link trang/profile dạng đặc biệt — không thêm "/"
-            if page_name.startswith("profile.php"):
-                url_trang = f"https://www.facebook.com/{page_name}"
+            # Chuẩn hóa URL trang: chấp nhận cả full URL (https://www.facebook.com/...), profile.php?id=..., hoặc username
+            page_clean = str(page_name).strip()
+            if page_clean.startswith("http://") or page_clean.startswith("https://"):
+                url_trang = page_clean
+            elif page_clean.startswith("profile.php"):
+                url_trang = f"https://www.facebook.com/{page_clean}"
             else:
-                url_trang = f"https://www.facebook.com/{page_name}/"
+                url_trang = f"https://www.facebook.com/{page_clean.strip('/')}/"
             page.goto(url_trang, timeout=60000, wait_until="domcontentloaded")
 
             # chờ 5s đầu theo từng phần nhỏ để bấm Dừng được dừng ngay
@@ -406,6 +527,45 @@ def cào_trang(page_name: str, so_bai: int, so_lan_cuon: int, delay: float,
                     log(f"    [i] Đã dừng theo yêu cầu tại '{page_name}'")
                     return []
                 page.wait_for_timeout(500)
+
+            # --- Đóng popup đăng nhập / "Tiếp tục dưới tên ..." nếu xuất hiện ---
+            try:
+                # Nút X đóng popup (aria-label="Đóng" hoặc role="button" gần dialog)
+                popup_closed = False
+                for sel in [
+                    '[aria-label="Đóng"]',
+                    '[aria-label="Close"]',
+                    'div[role="dialog"] div[aria-label="Đóng"]',
+                    'div[role="dialog"] div[aria-label="Close"]',
+                ]:
+                    btn = page.locator(sel).first
+                    if btn.is_visible(timeout=500):
+                        btn.click()
+                        popup_closed = True
+                        log("    [i] Đã đóng popup đăng nhập.")
+                        page.wait_for_timeout(1500)
+                        break
+                if not popup_closed:
+                    # Thử tìm nút "Tiếp tục" (login continue) rồi click
+                    btns = page.locator('[role="button"]')
+                    for i in range(btns.count()):
+                        txt = (btns.nth(i).inner_text() or "").strip()
+                        if "Tiếp tục" in txt or "Continue" in txt:
+                            btns.nth(i).click()
+                            log("    [i] Bấm 'Tiếp tục' để đóng popup.")
+                            page.wait_for_timeout(2000)
+                            popup_closed = True
+                            break
+                if not popup_closed:
+                    # Cuối cùng: đóng bằng Escape
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(800)
+            except Exception:
+                try:
+                    page.keyboard.press("Escape")
+                    page.wait_for_timeout(500)
+                except Exception:
+                    pass
 
             # Chờ tối đa 10s cho bài xuất hiện (không bỏ cuộc ngay — nhiều trang
             # tải bài chậm, nhất là profile/trang nhỏ; vòng cuộn phía dưới sẽ tự
@@ -453,6 +613,14 @@ def cào_trang(page_name: str, so_bai: int, so_lan_cuon: int, delay: float,
                 them = 0
                 for b in bai_moi:
                     if b["post_id"] in da_thay:
+                        # FB lazy-load: lần đọc trước có thể chưa kịp tải ảnh, giờ bài
+                        # render lại kèm ảnh -> bổ sung vào bản đang giữ.
+                        for cu in cac_bai:
+                            if (cu.get("post_id") == b["post_id"]
+                                    and not cu.get("images") and b.get("images")):
+                                cu["images"] = b["images"]
+                                them += 1
+                                break
                         continue
                     # bài đôi khi được render 2 lần với post_id khác nhau
                     # (bản đầy đủ hơn sau khi bấm "Xem thêm") -> so text
@@ -460,17 +628,37 @@ def cào_trang(page_name: str, so_bai: int, so_lan_cuon: int, delay: float,
                     binh_thuong = re.sub(r"\s+", " ", b["text"] or "")
                     binh_thuong = re.sub(r"[\U0001F000-\U0001FAFF☀-➿]",
                                          "", binh_thuong)
+                    # Bỏ prefix page name + metadata để so sánh chính xác hơn
+                    # (VD: "Chiefs Dynasty FansNội dung do AI tạo  · 3 giờ  · ...")
+                    binh_thuong_core = re.sub(
+                        r"^.{0,80}·\s*Đã chia sẻ với.*?(?:khai|hạn chế)\s*",
+                        "", binh_thuong, count=1)
+                    if not binh_thuong_core:
+                        binh_thuong_core = binh_thuong
                     for cu in cac_bai:
                         binh_cu = re.sub(r"\s+", " ", cu["text"] or "")
                         binh_cu = re.sub(r"[\U0001F000-\U0001FAFF☀-➿]",
                                          "", binh_cu)
-                        if binh_thuong and binh_cu and (
-                                binh_thuong[:40] == binh_cu[:40] or
-                                binh_thuong in binh_cu or binh_cu in binh_thuong):
-                            # giữ bản có link; nếu bản mới có link hơn thì thay
+                        binh_cu_core = re.sub(
+                            r"^.{0,80}·\s*Đã chia sẻ với.*?(?:khai|hạn chế)\s*",
+                            "", binh_cu, count=1)
+                        if not binh_cu_core:
+                            binh_cu_core = binh_cu
+                        # So sánh phần NỘI DUNG (bỏ header), dùng 120 ký tự
+                        if binh_thuong_core and binh_cu_core and (
+                                binh_thuong_core[:120] == binh_cu_core[:120] or
+                                (len(binh_thuong_core) > 60 and
+                                 binh_thuong_core in binh_cu_core) or
+                                (len(binh_cu_core) > 60 and
+                                 binh_cu_core in binh_thuong_core)):
+                            # giữ bản có link; nếu bản mới có link hơn thì thay;
+                            # nếu bản cũ chưa có ảnh mà bản mới có -> bổ sung ảnh
                             if not cu["post_url"] and b["post_url"]:
                                 cac_bai[cac_bai.index(cu)] = b
                                 da_thay.add(b["post_id"])
+                                them += 1
+                            elif not cu.get("images") and b.get("images"):
+                                cu["images"] = b["images"]
                                 them += 1
                             la_trung = True
                             break
@@ -494,17 +682,21 @@ def cào_trang(page_name: str, so_bai: int, so_lan_cuon: int, delay: float,
                 else:
                     dem_khong_tang = 0
 
-                so_truoc = page.locator('[aria-label="Viết bình luận"]').count()
+                # Chọn selector đếm: ưu tiên toolbar (logged-in), fallback [role="article"]
+                sel_dem = '[aria-label="Viết bình luận"]'
+                so_truoc = page.locator(sel_dem).count()
+                if so_truoc == 0:
+                    sel_dem = '[role="article"]'
+                    so_truoc = page.locator(sel_dem).count()
                 page.mouse.wheel(0, 6000)
-                # Chờ bài MỚI xuất hiện (số thanh tương tác TĂNG lên) — tối đa
-                # delay giây. Trước đây cứ thấy bài cũ là thôi chờ, nên bài mới
-                # chưa kịp tải đã đọc DOM -> tưởng "hết bài" rồi dừng sớm.
+                # Chờ bài MỚI xuất hiện (số element TĂNG lên) — tối đa
+                # delay giây.
                 cho = 0
                 toi_da = max(delay, 4.0) * 1000
                 while cho < toi_da:
                     if stop_flag and stop_flag.is_set():
                         break
-                    so_ht = page.locator('[aria-label="Viết bình luận"]').count()
+                    so_ht = page.locator(sel_dem).count()
                     if so_ht > so_truoc:
                         break
                     page.wait_for_timeout(500)

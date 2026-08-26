@@ -93,6 +93,13 @@ class LocalJsonStore:
         danh_sach[chi_so] = dong
         self._ghi(ten_sheet, danh_sach)
 
+    def xoa_dong(self, ten_sheet, chi_so: int):
+        """Xóa 1 dòng theo chi_so (0-based — dòng 2 trong bảng = chi_so 0)."""
+        danh_sach = self.lay_tat_ca(ten_sheet)
+        if 0 <= chi_so < len(danh_sach):
+            del danh_sach[chi_so]
+            self._ghi(ten_sheet, danh_sach)
+
     def tim_dong(self, ten_sheet, cot: str, gia_tri) -> (int, dict):
         """Tìm dòng đầu tiên có cot == gia_tri. Trả về (chi_so, dong) hoặc None."""
         for i, dong in enumerate(self.lay_tat_ca(ten_sheet)):
@@ -182,6 +189,11 @@ class GoogleSheetsStore:
         tieu_de = du_lieu[0]
         dong_moi = [dong.get(c, "") for c in tieu_de]
         ws.update(f"A{chi_so + 2}", [dong_moi], value_input_option="USER_ENTERED")
+
+    def xoa_dong(self, ten_sheet, chi_so: int):
+        """Xóa 1 dòng theo chi_so (0-based — dòng 2 trong sheet = chi_so 0)."""
+        ws = self._sheet(ten_sheet)
+        ws.delete_rows(chi_so + 2)
 
     def tim_dong(self, ten_sheet, cot: str, gia_tri):
         for i, dong in enumerate(self.lay_tat_ca(ten_sheet)):

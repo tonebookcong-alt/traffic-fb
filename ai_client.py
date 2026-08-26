@@ -114,6 +114,68 @@ def _goi_gemini(api_key, model, he_thong, nguoi_dung, nhiet_do, toi_da_tu):
     return du_lieu["candidates"][0]["content"]["parts"][0]["text"].strip()
 
 
+def _goi_deepseek(api_key, model, he_thong, nguoi_dung, nhiet_do, toi_da_tu):
+    import requests
+    resp = requests.post(
+        "https://api.deepseek.com/chat/completions",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json={
+            "model": model or "deepseek-chat",
+            "messages": [
+                {"role": "system", "content": he_thong},
+                {"role": "user", "content": nguoi_dung},
+            ],
+            "temperature": nhiet_do,
+            "max_tokens": max(toi_da_tu, 4000) if toi_da_tu > 1000 else toi_da_tu,
+        },
+        timeout=180,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
+
+
+def kiem_tra_api_key(provider=None, api_key=None, model=None) -> dict:
+    """Gửi 1 câu lệnh nhỏ tới provider để xác nhận key còn dùng được.
+
+    Trả về dict: {"ok": bool, "message": str} — thân thiện để hiện trên WebUI.
+    Không cần nhập key khi provider='mock' (luôn thành công).
+    """
+    provider = (provider or "").strip()
+    api_key = (api_key or "").strip()
+    model = (model or "").strip()
+
+    if provider == "mock":
+        return {"ok": True, "message": "Chế độ mock — không cần API key, luôn chạy thử được."}
+
+    if not api_key:
+        return {"ok": False, "message": "Chưa nhập API key."}
+
+    cau = "Hãy trả lời đúng 1 từ: OK"
+    try:
+        if provider == "deepseek":
+            tra_loi = _goi_deepseek(api_key, model, "Bạn là trợ lý.", cau, 0.2, 20)
+        elif provider == "openai":
+            tra_loi = _goi_openai(api_key, model, "Bạn là trợ lý.", cau, 0.2, 20)
+        elif provider == "anthropic":
+            tra_loi = _goi_anthropic(api_key, model, "Bạn là trợ lý.", cau, 0.2, 20)
+        elif provider == "gemini":
+            tra_loi = _goi_gemini(api_key, model, "Bạn là trợ lý.", cau, 0.2, 20)
+        else:
+            return {"ok": False, "message": f"Provider không hợp lệ: {provider}"}
+    except Exception as e:
+        chi_tiet = str(e)
+        # Bọc lỗi HTTP để dễ đọc (vd 401 = key sai)
+        if "401" in chi_tiet or "Invalid API key" in chi_tiet or "Unauthorized" in chi_tiet:
+            return {"ok": False, "message": f"API key bị từ chối (401). Key không đúng hoặc hết hạn. Chi tiết: {chi_tiet[:200]}"}
+        if "429" in chi_tiet:
+            return {"ok": False, "message": f"Vượt giới hạn (429) hoặc key hết hạn. Chi tiết: {chi_tiet[:200]}"}
+        return {"ok": False, "message": f"Lỗi khi gọi {provider}: {chi_tiet[:200]}"}
+
+    if tra_loi:
+        return {"ok": True, "message": f"Kết nối OK với {provider} ({model or 'model mặc định'}). Phản hồi: {tra_loi[:40]}"}
+    return {"ok": True, "message": f"Kết nối OK với {provider} (model trả về rỗng)."}
+
+
 def goi_ai(he_thong, nguoi_dung, nhiet_do=0.7, toi_da_tu=1500) -> str:
     """Gọi AI theo provider trong config.json. Ném lỗi rõ ràng khi thiếu key."""
     cfg = load_config()
@@ -129,6 +191,8 @@ def goi_ai(he_thong, nguoi_dung, nhiet_do=0.7, toi_da_tu=1500) -> str:
             "config.json chưa có ai.api_key. Hoặc điền key API, hoặc để "
             "provider='mock' để chạy thử không cần key.")
 
+    if provider == "deepseek":
+        return _goi_deepseek(api_key, model, he_thong, nguoi_dung, nhiet_do, toi_da_tu)
     if provider == "openai":
         return _goi_openai(api_key, model, he_thong, nguoi_dung, nhiet_do, toi_da_tu)
     if provider == "anthropic":
@@ -136,7 +200,7 @@ def goi_ai(he_thong, nguoi_dung, nhiet_do=0.7, toi_da_tu=1500) -> str:
     if provider == "gemini":
         return _goi_gemini(api_key, model, he_thong, nguoi_dung, nhiet_do, toi_da_tu)
     raise RuntimeError(f"ai.provider không hợp lệ: {provider} "
-                       "(chỉ nhận: mock, openai, anthropic, gemini)")
+                       "(chỉ nhận: mock, deepseek, openai, anthropic, gemini)")
 
 
 if __name__ == "__main__":

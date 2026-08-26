@@ -1,9 +1,9 @@
 {
   "cookies_file": "cookies.txt",
   "ai": {
-    "provider": "mock",
-    "api_key": "",
-    "model": ""
+    "provider": "deepseek",
+    "api_key": "sk-0f5585afae8046b2b75da1b08f8a98c2",
+    "model": "deepseek-chat"
   },
   "sheets": {
     "credentials_file": "google_sheets_creds.json",
@@ -14,5 +14,19 @@
     "so_lan_cuon": 3,
     "delay": 3.0
   },
-  "content_han_ngay": 7
+  "content_han_ngay": 7,
+  "media": {
+    "logo_path": "logo.png",
+    "logo_position": "bottom_left",
+    "logo_scale": 0.17,
+    "max_size": 1080,
+    "border_style": "gradient",
+    "border_width": 30,
+    "border_color": "#003C8C",
+    "border_color2": "#007ACC",
+    "border_color3": "#FFFFFF",
+    "enhance_contrast": 1.1,
+    "enhance_brightness": 1.05,
+    "enhance_color": 1.22
+  }
 }

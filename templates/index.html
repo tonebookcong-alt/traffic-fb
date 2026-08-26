@@ -1,463 +1,1585 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Facebook Scraper — Bảng điều khiển</title>
-<style>
-  :root {
-    --bg: #f5f7fa; --card: #ffffff; --border: #e2e8f0;
-    --primary: #1F4E78; --accent: #2b6cb0; --text: #1e293b; --muted: #64748b;
-    --cao-bg: #C6EFCE; --cao-tx: #006100; --tb-bg: #FFEB9C; --tb-tx: #9C6500;
-    --thap-bg: #E5E7EB; --thap-tx: #6B7280;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Segoe UI", system-ui, Arial, sans-serif; background: var(--bg); color: var(--text); }
-  header {
-    background: var(--primary); color: #fff; padding: 14px 24px;
-    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
-  }
-  header h1 { font-size: 18px; font-weight: 600; }
-  header .sub { font-size: 12px; opacity: .85; }
-  nav { background: #fff; border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; gap: 4px; }
-  nav button {
-    border: none; background: none; padding: 12px 18px; font-size: 14px; cursor: pointer;
-    color: var(--muted); border-bottom: 3px solid transparent; font-weight: 600;
-  }
-  nav button.active { color: var(--primary); border-bottom-color: var(--primary); }
-  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
-  .tab { display: none; }
-  .tab.active { display: block; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-  .card h2 { font-size: 15px; margin-bottom: 12px; color: var(--primary); }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facebook Traffic Master — Quản lý 4 Tab</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #1877f2;
+      --primary-hover: #166fe5;
+      --bg-light: #f0f2f5;
+      --card-bg: #ffffff;
+      --text-dark: #1c1e21;
+      --text-muted: #65676b;
+      --border-color: #ced0d4;
+      --success: #31a24c;
+      --warning: #f7b125;
+      --danger: #fa3e3e;
+    }
+    body {
+      background-color: var(--bg-light);
+      color: var(--text-dark);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+    }
+    .navbar-brand {
+      font-weight: 700;
+      color: var(--primary) !important;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-tabs {
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 20px;
+    }
+    .nav-tabs .nav-link {
+      font-weight: 600;
+      color: var(--text-muted);
+      border: none;
+      padding: 12px 20px;
+      font-size: 15px;
+      border-radius: 8px 8px 0 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-tabs .nav-link.active {
+      color: var(--primary);
+      border-bottom: 3px solid var(--primary);
+      background-color: #fff;
+    }
+    .card {
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      background-color: var(--card-bg);
+      margin-bottom: 20px;
+    }
+    .card-header {
+      background-color: #fff;
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 700;
+      padding: 14px 20px;
+      border-radius: 12px 12px 0 0 !important;
+    }
+    .badge-status {
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .badge-NEW { background-color: #e7f3ff; color: #1877f2; }
+    .badge-PROCESSING { background-color: #fff4e5; color: #b76e00; }
+    .badge-SAN_SANG { background-color: #e7f0ff; color: #3f51b5; }
+    .badge-HOAN_THANH { background-color: #d9f7e2; color: #136d33; }
+    .badge-WEB_POSTED { background-color: #e6f4ea; color: #137333; }
+    .badge-DONE { background-color: #ceead6; color: #0d652d; }
+    .badge-ERROR { background-color: #fce8e6; color: #c5221f; }
+    .badge-HET_HAN { background-color: #f1f3f4; color: #5f6368; }
 
-  /* ---- Form ---- */
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
-  input[type=text], input[type=number], textarea, select {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
-    font-size: 14px; font-family: inherit;
-  }
-  textarea { min-height: 90px; resize: vertical; }
-  .btn {
-    border: none; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600;
-    cursor: pointer; color: #fff; background: var(--accent);
-  }
-  .btn:disabled { opacity: .5; cursor: not-allowed; }
-  .btn.stop { background: #c0392b; }
-  .btn.gray { background: #64748b; }
-  .btn.green { background: #1a7f37; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
-  .checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
-
-  /* ---- Trạng thái ---- */
-  .chips { display: flex; gap: 10px; flex-wrap: wrap; }
-  .chip { background: #eef2f7; border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; font-size: 13px; }
-  .chip b { color: var(--primary); }
-  .hashtag {
-    display: inline-block; background: #e8f0fe; color: #1a56db; border: 1px solid #c6d8f7;
-    border-radius: 999px; padding: 1px 8px; font-size: 12px; margin: 1px 3px 1px 0;
-    white-space: nowrap;
-  }
-  #thong-bao { font-size: 14px; font-weight: 600; margin-top: 10px; }
-  #thong-bao.ok { color: #1a7f37; } #thong-bao.err { color: #c0392b; } #thong-bao.run { color: var(--accent); }
-
-  /* ---- Log ---- */
-  .log {
-    background: #1e293b; color: #cbd5e1; border-radius: 8px; padding: 12px;
-    font-family: Consolas, "Courier New", monospace; font-size: 12px;
-    height: 220px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5;
-  }
-  .log .ok { color: #4ade80; } .log .err { color: #f87171; } .log .info { color: #7dd3fc; }
-
-  /* ---- Bảng ---- */
-  .bang-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  thead th {
-    position: sticky; top: 0; background: var(--primary); color: #fff; text-align: left;
-    padding: 8px 10px; font-weight: 600; z-index: 1; white-space: nowrap;
-  }
-  tbody td { padding: 8px 10px; border-top: 1px solid var(--border); vertical-align: top; }
-  tbody tr:hover { background: #f1f5f9; }
-  .so { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .noi-dung { max-width: 420px; white-space: pre-wrap; word-break: break-word; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-  .badge-CAO { background: var(--cao-bg); color: var(--cao-tx); }
-  .badge-TRUNG_BINH { background: var(--tb-bg); color: var(--tb-tx); }
-  .badge-THAP { background: var(--thap-bg); color: var(--thap-tx); }
-  .badge-na { background: #eef2f7; color: var(--muted); }
-  a.link { color: var(--accent); text-decoration: none; font-weight: 600; }
-  a.link:hover { text-decoration: underline; }
-  .thumbs { display: flex; gap: 4px; flex-wrap: wrap; max-width: 220px; }
-  .thumbs img { width: 54px; height: 54px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid var(--border); }
-
-  .kq-chips .chip b { font-size: 15px; }
-  .kq-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-  .empty { text-align: center; color: var(--muted); padding: 40px 10px; font-size: 14px; }
-  .live-row-flash { animation: flash 1s; }
-  @keyframes flash { from { background: #e0f2fe; } to { background: transparent; } }
-</style>
+    .table-container {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      overflow-x: auto;
+    }
+    .table th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
+    }
+    .img-thumb {
+      width: 60px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid #ddd;
+    }
+    .caption-preview {
+      max-width: 320px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: inline-block;
+    }
+    .copy-btn {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      transform: scale(1.05);
+    }
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+    }
+    .version-tab-btn.active {
+      background-color: var(--primary) !important;
+      color: #fff !important;
+    }
+    .editor-box {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: inherit;
+      width: 100%;
+      resize: vertical;
+    }
+  </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>📊 Facebook Scraper — Bảng điều khiển</h1>
-    <div class="sub">Cào bài viết (text + ảnh) từ Facebook Page · quan sát trực tiếp · xem kết quả như Excel</div>
+
+  <!-- Toast thông báo -->
+  <div class="toast-container">
+    <div id="liveToast" class="toast align-items-center text-white bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="d-flex">
+        <div class="toast-body" id="toastMsg">Thông báo</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    </div>
   </div>
-  <div id="trang-thai-nhanh" style="font-size:13px"></div>
-</header>
 
-<nav>
-  <button id="tab-btn-cao" class="active" onclick="chonTab('cao')">🔍 Cào dữ liệu</button>
-  <button id="tab-btn-ket-qua" onclick="chonTab('ket-qua')">📋 Kết quả</button>
-</nav>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top py-2 shadow-sm">
+    <div class="container-fluid px-4">
+      <a class="navbar-brand" href="#">
+        <i class="fa-brands fa-facebook text-primary fs-3"></i>
+        <span>Traffic FB Master Pro</span>
+        <span class="badge bg-light text-dark border ms-2" style="font-size: 11px;">Phần 1 + Phần 2</span>
+      </a>
+      <div class="d-flex align-items-center gap-3">
+        <span class="text-muted small"><i class="fa-solid fa-robot text-success"></i> DeepSeek V4 Flash: <strong>Sẵn sàng</strong></span>
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2">
+          <i class="fa-solid fa-circle-check me-1"></i> Local DB Active
+        </span>
+      </div>
+    </div>
+  </nav>
 
-<main>
-  <!-- ================= TAB CÀO DỮ LIỆU ================= -->
-  <section id="tab-cao" class="tab active">
-    <div class="card">
-      <h2>⚙️ Cấu hình cào</h2>
-      <div class="grid">
-        <div style="grid-column: span 2">
-          <label for="pages">Danh sách trang (mỗi trang 1 dòng — tên hoặc URL)</label>
-          <textarea id="pages" placeholder="ten-trang-1&#10;https://www.facebook.com/ten-trang-2&#10;ten-trang-3"></textarea>
+  <!-- Container chính -->
+  <div class="container-fluid px-4 py-3">
+
+    <!-- 4 Tabs chính -->
+    <ul class="nav nav-tabs" id="mainTab" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active" id="tab1-tab" data-bs-toggle="tab" data-bs-target="#tab1" type="button">
+          <i class="fa-solid fa-cloud-arrow-down"></i> 1. Cào Dữ Liệu
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2" type="button" onclick="taiKhoBai()">
+          <i class="fa-solid fa-boxes-stacked"></i> 2. Kho Bài Viết (Content Pool) <span id="poolCountBadge" class="badge bg-primary ms-1">0</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3" type="button">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> 3. Xử Lý AI & Chỉnh Bài
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab4-tab" data-bs-toggle="tab" data-bs-target="#tab4" type="button" onclick="taiBaiSanSang()">
+          <i class="fa-solid fa-paper-plane"></i> 4. Đăng Sẵn Sàng (Chờ Cắt Ảnh) <span id="readyCountBadge" class="badge bg-success ms-1">0</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab5-tab" data-bs-toggle="tab" data-bs-target="#tab5" type="button" onclick="taiBaiHoanThanh(); taiPhienHoanThanh();">
+          <i class="fa-solid fa-box-archive"></i> 5. Hoàn Thành & Xuất Excel <span id="hoanThanhCountBadge" class="badge bg-primary ms-1">0</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="tab6-tab" data-bs-toggle="tab" data-bs-target="#tab6" type="button" onclick="taiCauHinhAI()">
+          <i class="fa-solid fa-gear"></i> 6. Cài Đặt AI
+        </button>
+      </li>
+    </ul>
+
+    <!-- Nội dung 4 Tabs -->
+    <div class="tab-content" id="mainTabContent">
+
+      <!-- TAB 1 -->
+      <div class="tab-pane fade show active" id="tab1">
+        <div class="row">
+          <div class="col-md-5">
+            <div class="card">
+              <div class="card-header"><i class="fa-solid fa-gear me-2"></i> Thiết Lập Cào Dữ Liệu</div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Danh sách Fanpage nguồn (mỗi dòng 1 trang):</label>
+                  <textarea id="scrapePages" class="form-control" rows="4" placeholder="wx.phanvanvu&#10;https://facebook.com/nfl"></textarea>
+                </div>
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <label class="form-label small fw-bold">Số bài mỗi trang:</label>
+                    <input type="number" id="scrapePerPage" class="form-control" value="10">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small fw-bold">Số lần cuộn trang:</label>
+                    <input type="number" id="scrapeScroll" class="form-control" value="3">
+                  </div>
+                </div>
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <label class="form-label small fw-bold">Nghỉ giữa các lần (giây):</label>
+                    <input type="number" id="scrapeDelay" class="form-control" value="3" step="0.5">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small fw-bold">File Cookies:</label>
+                    <input type="text" id="scrapeCookies" class="form-control" value="cookies.txt">
+                  </div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button id="btnCheckCookie" class="btn btn-outline-secondary" onclick="kiemTraCookie()">
+                    <i class="fa-solid fa-cookie me-1"></i> Kiểm tra Cookies
+                  </button>
+                  <button id="btnStartScrape" class="btn btn-primary flex-grow-1" onclick="batDauCao()">
+                    <i class="fa-solid fa-play me-1"></i> Bắt Đầu Cào
+                  </button>
+                  <button id="btnStopScrape" class="btn btn-danger d-none" onclick="dungCao()">
+                    <i class="fa-solid fa-stop me-1"></i> Dừng
+                  </button>
+                </div>
+
+                <hr class="my-3">
+                <div class="row g-2 align-items-center">
+                  <div class="col-auto">
+                    <label class="form-label small fw-bold mb-0">Luồng đầy đủ:</label>
+                  </div>
+                  <div class="col">
+                    <button id="btnCaLuong" class="btn btn-warning w-100" onclick="chayCaLuong()">
+                      <i class="fa-solid fa-bolt me-1"></i> ⚡ Chạy Cả Luồng (Cào → Viết lại → Chỉnh Ảnh → CSV)
+                    </button>
+                  </div>
+                  <div class="col-auto">
+                    <button class="btn btn-outline-success" onclick="xuatCsv()"
+                            title="Tạo file CSV phân loại các bài ĐÃ xử lý (WEB_POSTED/DONE) — không cần chạy lại luồng.">
+                      <i class="fa-solid fa-file-csv me-1"></i> Xuất CSV phân loại
+                    </button>
+                  </div>
+                </div>
+
+                <div id="csvDownloadBox" class="mt-2 d-none">
+                  <div class="bg-success-subtle border rounded p-2 small">
+                    <span class="fw-bold text-success"><i class="fa-solid fa-file-csv me-1"></i> Gói CSV phân loại đã sẵn sàng!</span>
+                    <div class="text-muted small mt-1">
+                      Dùng để đăng thủ công: mỗi bài 1 dòng, Caption ép 1 dòng, có KEY/Nhân vật/Link bài báo/Đường dẫn ảnh.
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                      <a id="btnDownloadCsv" href="/api/tai_csv" class="btn btn-sm btn-success fw-bold"
+                         title="Tải file CSV phân loại (mở được bằng Excel).">
+                        <i class="fa-solid fa-download me-1"></i> Tải CSV
+                      </a>
+                      <button class="btn btn-sm btn-outline-success" onclick="moThuMucCsv()"
+                              title="Mở thư mục chứa file CSV trong Windows Explorer.">
+                        <i class="fa-solid fa-folder-open me-1"></i> Mở Thư Mục
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-7">
+            <div class="card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fa-solid fa-terminal me-2"></i> Nhật Ký Chạy Thời Gian Thực</span>
+                <div class="d-flex gap-2 align-items-center">
+                  <span id="scrapeStatusText" class="badge bg-secondary">Sẵn sàng</span>
+                  <button class="btn btn-sm btn-outline-secondary py-0" onclick="document.getElementById('scrapeLogs').innerText='[i] Nhật ký đã làm sạch.';">Xóa log</button>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <div id="scrapeLogs" style="height: 300px; overflow-y: auto; background-color: #1e1e1e; color: #4af626; font-family: 'Consolas', monospace; padding: 15px; font-size: 13px; white-space: pre-wrap; line-height: 1.4;">[i] Hãy nhấn 'Bắt Đầu Cào' để lấy bài viết mới từ Facebook.</div>
+              </div>
+              <div id="excelDownloadBox" class="card-footer bg-success-subtle border-top d-none py-2 px-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="small fw-bold text-success"><i class="fa-solid fa-file-excel me-1"></i> Excel Kho bài (thô) đã sẵn sàng!</span>
+                  <div class="d-flex gap-2">
+                    <a id="btnDownloadExcel" href="/api/tai_xlsx" class="btn btn-sm btn-success fw-bold"
+                       title="File .xlsx Kho bài THÔ do máy cào tạo — khác với CSV phân loại ở trên."><i class="fa-solid fa-download me-1"></i> Tải Excel Kho bài</a>
+                    <button class="btn btn-sm btn-outline-success" onclick="chuyenTab('tab2')"><i class="fa-solid fa-arrow-right me-1"></i> Xem Kho Bài Viết</button>
+                  </div>
+                </div>
+                <div class="small text-muted mt-1">
+                  Đây là dữ liệu cào thô chưa qua xử lý. Muốn bản phân loại để đăng thì dùng <b>CSV phân loại</b> phía trên.
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div><label for="per_page">Số bài mỗi trang</label><input type="number" id="per_page" value="50" min="1"></div>
-        <div><label for="pages_scroll">Số lần cuộn (tối thiểu)</label><input type="number" id="pages_scroll" value="10" min="1"></div>
-        <div><label for="delay">Nghỉ (giây)</label><input type="number" id="delay" value="3" min="0" step="0.5"></div>
-        <div><label for="cookies">File cookies.txt</label><input type="text" id="cookies" value="cookies.txt" placeholder="cookies.txt"></div>
       </div>
-      <div class="row">
-        <button class="btn" id="btn-bat-dau" onclick="batDau()">▶ Bắt đầu cào</button>
-        <button class="btn stop" id="btn-dung" onclick="dungLai()" disabled>⏹ Dừng</button>
-        <button class="btn gray" id="btn-kiem-tra" onclick="kiemTraCookies()">🔎 Kiểm tra cookies</button>
-        <label class="checkbox"><input type="checkbox" id="no_images"> Không tải ảnh (chỉ lấy link)</label>
+
+      <!-- TAB 2 -->
+      <div class="tab-pane fade" id="tab2">
+        <div class="card">
+          <div class="card-body pb-2">
+            <div class="row g-3 align-items-center mb-2">
+              <div class="col-md-4">
+                <label class="small text-muted fw-bold"><i class="fa-solid fa-clock me-1"></i>Phiên cào:</label>
+                <select id="filterPhien" class="form-select form-select-sm" onchange="taiKhoBai()">
+                  <option value="">— Đang tải phiên... —</option>
+                </select>
+              </div>
+              <div class="col-md-8 d-flex align-items-center gap-3">
+                <div class="form-check">
+                  <input type="checkbox" id="chkChuaXuLy" class="form-check-input" checked onchange="taiKhoBai()">
+                  <label class="form-check-label small" for="chkChuaXuLy">Chỉ bài chưa chỉnh sửa</label>
+                </div>
+                <div id="phienTrang" class="small d-none"></div>
+              </div>
+            </div>
+            <div class="row g-3 align-items-center">
+              <div class="col-md-2">
+                <label class="small text-muted fw-bold">Lọc theo KEY:</label>
+                <select id="filterKey" class="form-select form-select-sm" onchange="taiKhoBai()">
+                  <option value="ALL">Tất cả KEY</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="small text-muted fw-bold">Lọc theo Nhân vật:</label>
+                <select id="filterNv" class="form-select form-select-sm" onchange="taiKhoBai()">
+                  <option value="ALL">Tất cả Nhân vật</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="small text-muted fw-bold">Trạng thái:</label>
+                <select id="filterStatus" class="form-select form-select-sm" onchange="taiKhoBai()">
+                  <option value="ALL">Tất cả Trạng thái</option>
+                  <option value="NEW">MỚI (NEW)</option>
+                  <option value="PROCESSING">ĐANG XỬ LÝ</option>
+                  <option value="WEB_POSTED">ĐÃ SẴN SÀNG ĐĂNG</option>
+                  <option value="DONE">HOÀN THÀNH</option>
+                  <option value="ERROR">LỖI</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="small text-muted fw-bold">Tìm kiếm nội dung:</label>
+                <input type="text" id="filterSearch" class="form-control form-control-sm" placeholder="Tìm caption, ID, nhân vật..." oninput="taiKhoBai()">
+              </div>
+              <div class="col-md-3">
+                <label class="small text-muted fw-bold">Sắp xếp:</label>
+                <select id="filterSort" class="form-select form-select-sm" onchange="taiKhoBai()">
+                  <option value="default">Mới nhất trước</option>
+                  <option value="diem">Điểm tương tác cao nhất</option>
+                  <option value="like">Lượt Like nhiều nhất</option>
+                  <option value="cmt">Lượt Comment nhiều nhất</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-footer bg-light d-flex justify-content-between align-items-center py-2 px-3 border-top">
+            <div class="d-flex align-items-center gap-2">
+              <span class="small fw-bold">Đã chọn: <span id="selectedCount" class="badge bg-primary">0</span> bài</span>
+              <select id="batchFormat" class="form-select form-select-sm" style="width: 140px;">
+                <option value="1:1">Tỷ lệ 1:1 (Vuông)</option>
+                <option value="4:5">Tỷ lệ 4:5 (Dọc FB)</option>
+                <option value="16:9">Tỷ lệ 16:9 (Ngang)</option>
+              </select>
+              <button class="btn btn-sm btn-primary" onclick="chayXuLyHangLoat()">
+                <i class="fa-solid fa-bolt me-1"></i> Xử Lý AI Hàng Loạt
+              </button>
+              <button class="btn btn-sm btn-outline-danger" onclick="xoaBaiDaChon()">
+                <i class="fa-solid fa-trash me-1"></i> Xóa bài đã chọn
+              </button>
+            </div>
+            <div>
+              <button class="btn btn-sm btn-outline-secondary" onclick="taiKhoBai(true)">
+                <i class="fa-solid fa-rotate-right me-1"></i> Làm mới
+              </button>
+            </div>
+          </div>
+
+          <div id="batchProgressBox" class="p-3 bg-light border-top d-none">
+            <div class="d-flex justify-content-between small fw-bold mb-1">
+              <span><i class="fa-solid fa-spinner fa-spin text-primary me-1"></i> Tiến trình xử lý hàng loạt:</span>
+              <span id="batchProgressText">0 / 0</span>
+            </div>
+            <div class="progress" style="height: 10px;">
+              <div id="batchProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-container shadow-sm">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th style="width: 40px;" class="text-center">
+                  <input type="checkbox" id="selectAllCheckbox" class="form-check-input" onchange="toggleSelectAll(this)">
+                </th>
+                <th style="width: 70px;">Ảnh</th>
+                <th>Caption Gốc</th>
+                <th>KEY</th>
+                <th>Nhân vật / Chủ đề</th>
+                <th>Tương tác</th>
+                <th>Thời gian đăng</th>
+                <th>Trạng thái</th>
+                <th class="text-center" style="width: 150px;">Hành động</th>
+              </tr>
+            </thead>
+            <tbody id="poolTableBody">
+              <tr><td colspan="9" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div id="thong-bao"></div>
+
+      <!-- TAB 3 -->
+      <div class="tab-pane fade" id="tab3">
+        <div id="emptyTab3" class="card text-center py-5">
+          <div class="card-body">
+            <i class="fa-solid fa-wand-magic-sparkles text-muted fs-1 mb-3"></i>
+            <h5>Chưa chọn bài viết nào để xử lý</h5>
+            <p class="text-muted small">Hãy quay lại <strong>Tab 2 (Kho Bài Viết)</strong> và bấm nút <strong>[✍️ Xử Lý Bài Này]</strong>.</p>
+            <button class="btn btn-primary" onclick="chuyenTab('tab2')"><i class="fa-solid fa-arrow-left me-1"></i> Đến Kho Bài Viết</button>
+          </div>
+        </div>
+
+        <div id="contentTab3" class="d-none">
+          <div class="card bg-white p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <button class="btn btn-sm btn-outline-secondary me-2" onclick="chuyenTab('tab2')"><i class="fa-solid fa-arrow-left"></i></button>
+                <span class="fw-bold fs-5" id="detailCid">Bài viết: ...</span>
+                <span class="badge bg-light text-dark border ms-2" id="detailKey">KEY: ...</span>
+                <span class="badge bg-light text-dark border ms-1" id="detailNv">NV: ...</span>
+              </div>
+              <div class="d-flex gap-2 align-items-center">
+                <span id="detailStatusBadge" class="badge badge-status badge-NEW">NEW</span>
+                <button class="btn btn-primary btn-sm" onclick="chayAiChoBaiHienTai()"><i class="fa-solid fa-wand-magic-sparkles me-1"></i> Sinh AI Lại</button>
+                <button class="btn btn-success btn-sm" onclick="luuVaXuatGoi()"><i class="fa-solid fa-circle-check me-1"></i> Hoàn Thành</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-5">
+              <div class="card mb-3">
+                <div class="card-header"><i class="fa-solid fa-file-lines me-2"></i> Bài Viết Gốc</div>
+                <div class="card-body">
+                  <div class="d-flex gap-3 mb-3">
+                    <img id="detailRawImg" src="" class="rounded border" style="width: 100px; height: 100px; object-fit: cover;">
+                    <div>
+                      <div class="small text-muted mb-1">Nguồn: <strong id="detailSource">...</strong></div>
+                      <div class="small text-muted mb-2">Đăng: <span id="detailTime">...</span></div>
+                      <div class="small">👍 <strong id="detailLikes">0</strong> | 💬 <strong id="detailCmts">0</strong> | 🔄 <strong id="detailShares">0</strong></div>
+                    </div>
+                  </div>
+                  <label class="form-label small fw-bold">Caption gốc:</label>
+                  <div id="detailRawCap" class="p-2 bg-light rounded small border" style="max-height: 150px; overflow-y: auto;">...</div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span><i class="fa-solid fa-image me-2"></i> Ảnh Đăng (cắt ở Tab 4)</span>
+                  <div class="d-flex gap-1 align-items-center">
+                    <select id="detailFormatType" class="form-select form-select-sm" style="width: 100px;">
+                      <option value="1:1">1:1 Vuông</option>
+                      <option value="4:5">4:5 Dọc FB</option>
+                      <option value="16:9">16:9 Ngang</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="showToast('Cắt ảnh sẽ thực hiện ở Tab 4 — bấm Hoàn Thành trước.')"><i class="fa-solid fa-circle-info"></i></button>
+                  </div>
+                </div>
+                <div class="card-body text-center">
+                  <img id="detailProcessedImg" src="" class="rounded border mb-2 shadow-sm" style="max-width: 100%; max-height: 250px; object-fit: contain;">
+                  <div class="small text-muted" id="detailImgPath">Chưa xử lý ảnh</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-7">
+              <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span><i class="fa-solid fa-fire text-danger me-2"></i> 3 Phiên Bản Caption Viral (DeepSeek)</span>
+                  <button class="btn btn-sm btn-outline-secondary" onclick="vietLaiMoiCaption()"><i class="fa-solid fa-rotate me-1"></i> Tạo 3 bản mới</button>
+                </div>
+                <div class="card-body">
+                  <ul class="nav nav-pills mb-3" id="captionTabs">
+                    <li class="nav-item"><button class="nav-link active btn-sm px-3 py-1 version-tab-btn" onclick="chonVersionTab(1)">Version 1</button></li>
+                    <li class="nav-item"><button class="nav-link btn-sm px-3 py-1 version-tab-btn" onclick="chonVersionTab(2)">Version 2</button></li>
+                    <li class="nav-item"><button class="nav-link btn-sm px-3 py-1 version-tab-btn" onclick="chonVersionTab(3)">Version 3</button></li>
+                  </ul>
+                  <div class="mb-2">
+                    <textarea id="activeCaptionText" class="editor-box" rows="6" placeholder="Nội dung caption..."></textarea>
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div class="form-check">
+                      <input class="form-check-input" type="radio" name="chosenVersionRadio" id="radioV1" checked onchange="datLamMacDinh(1)">
+                      <label class="form-check-label small fw-bold" for="radioV1">Đặt làm bản chọn đăng FB</label>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyCaptionHienTai()"><i class="fa-solid fa-copy me-1"></i> Copy Caption</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span><i class="fa-solid fa-newspaper text-primary me-2"></i> Bài Báo SEO (1.500–1.700 từ)</span>
+                  <div class="d-flex gap-2">
+                    <span id="articleWordCount" class="badge bg-light text-dark border">0 từ</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="vietLaiMoiBaiBao()"><i class="fa-solid fa-rotate me-1"></i> Viết lại</button>
+                    <button class="btn btn-sm btn-outline-primary copy-btn" onclick="copyBaiBao()"><i class="fa-solid fa-copy me-1"></i> Copy Bài Báo</button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="mb-3">
+                    <label class="form-label small fw-bold">Link bài báo (Article URL comment Facebook):</label>
+                    <div class="input-group input-group-sm">
+                      <input type="text" id="detailArticleUrl" class="form-control" placeholder="https://dailysportswire.com/articles/...">
+                      <button class="btn btn-outline-secondary copy-btn" onclick="copyArticleUrl()"><i class="fa-solid fa-copy"></i></button>
+                    </div>
+                  </div>
+                  <label class="form-label small fw-bold">Nội dung bài báo đầy đủ:</label>
+                  <textarea id="detailArticleContent" class="editor-box" rows="8" placeholder="Nội dung bài báo..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4 -->
+      <div class="tab-pane fade" id="tab4">
+        <div class="card mb-3">
+          <div class="card-body py-2 d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-0 fw-bold"><i class="fa-solid fa-images text-success me-2"></i> Bài Đã Hoàn Thành ở Tab 3 — Chờ Cắt Ảnh</h6>
+              <span class="small text-muted">Tích các bài rồi bấm <b>Xử Lí Ảnh</b>. Bài nào cắt ảnh xong sẽ tự rời khỏi đây và chuyển sang Tab 5.</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <select id="tab4FormatType" class="form-select form-select-sm" style="width: 110px;">
+                <option value="1:1">1:1 Vuông</option>
+                <option value="4:5">4:5 Dọc FB</option>
+                <option value="16:9">16:9 Ngang</option>
+              </select>
+              <button class="btn btn-sm btn-primary" onclick="xuLyAnhHangLoat()"><i class="fa-solid fa-crop me-1"></i> Xử Lí Ảnh</button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="taiBaiSanSang()"><i class="fa-solid fa-rotate-right me-1"></i> Làm mới</button>
+            </div>
+          </div>
+          <div class="card-body border-top">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="chkTab4All" onchange="toggleTab4All(this)">
+              <label class="form-check-label small fw-bold" for="chkTab4All">Chọn tất cả bài</label>
+            </div>
+            <div class="d-flex justify-content-between small fw-bold mb-1">
+              <span><i class="fa-solid fa-spinner fa-spin text-primary me-1"></i> Tiến trình cắt ảnh:</span>
+              <span id="tab4ProgressText">0 / 0</span>
+            </div>
+            <div class="progress d-none" id="tab4ProgressBox" style="height: 10px;">
+              <div id="tab4ProgressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" style="width: 0%;"></div>
+            </div>
+            <div id="tab4ErrorBox" class="small text-danger mt-2"></div>
+          </div>
+        </div>
+        <div id="readyPostList" class="row g-3">
+          <div class="col-12 text-center py-5 text-muted">Đang tải danh sách...</div>
+        </div>
+      </div>
+
+      <!-- TAB 5 -->
+      <div class="tab-pane fade" id="tab5">
+        <div class="card mb-3">
+          <div class="card-body py-2 d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-0 fw-bold"><i class="fa-solid fa-box-archive text-success me-2"></i> Bài Đã Hoàn Thành Đầy Đủ</h6>
+              <span class="small text-muted">Xem lại ảnh + nội dung lần cuối, tích từng bài (hoặc tất cả) rồi bấm <b>Xuất Excel</b>.</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <button class="btn btn-sm btn-primary" onclick="xuatExcelTab5()"><i class="fa-solid fa-file-excel me-1"></i> Xuất Excel</button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="taiBaiHoanThanh()"><i class="fa-solid fa-rotate-right me-1"></i> Làm mới</button>
+            </div>
+          </div>
+          <div class="card-body border-top py-2">
+            <div class="row g-3 align-items-center mb-2">
+              <div class="col-md-4">
+                <label class="small text-muted fw-bold"><i class="fa-solid fa-clock me-1"></i>Phiên cào:</label>
+                <select id="filterPhienHt" class="form-select form-select-sm" onchange="taiBaiHoanThanh()">
+                  <option value="">— Đang tải phiên... —</option>
+                </select>
+              </div>
+              <div class="col-md-8">
+                <div id="phienHtTrang" class="small d-none"></div>
+              </div>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="chkTab5All" onchange="toggleTab5All(this)">
+              <label class="form-check-label small fw-bold" for="chkTab5All">Chọn tất cả bài</label>
+            </div>
+          </div>
+        </div>
+        <div id="hoanThanhList" class="row g-3">
+          <div class="col-12 text-center py-5 text-muted">Đang tải danh sách...</div>
+        </div>
+      </div>
+
+      <!-- TAB 6: CÀI ĐẶT AI -->
+      <div class="tab-pane fade" id="tab6">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="fw-bold mb-1"><i class="fa-solid fa-gear text-primary me-2"></i> Cấu Hình AI</h6>
+            <p class="small text-muted mb-3">Chọn nhà cung cấp AI, điền API key và model. Bấm <b>Kiểm tra</b> để xác nhận key còn dùng được, rồi <b>Lưu</b> để áp dụng cho tool.</p>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label small fw-bold" for="aiProvider">Nhà cung cấp</label>
+                <select id="aiProvider" class="form-select">
+                  <option value="mock">mock — chạy thử không cần key</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold" for="aiApiKey">API Key</label>
+                <input type="password" id="aiApiKey" class="form-control" placeholder="sk-..." autocomplete="off">
+                <div class="form-check mt-1">
+                  <input class="form-check-input" type="checkbox" id="aiHienKey" onchange="document.getElementById('aiApiKey').type = this.checked ? 'text' : 'password'">
+                  <label class="form-check-label small" for="aiHienKey">Hiện key</label>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-bold" for="aiModel">Model</label>
+                <input type="text" id="aiModel" class="form-control" placeholder="vd: deepseek-chat, gpt-4o-mini, claude-sonnet-4-5, gemini-1.5-flash">
+                <div class="small text-muted mt-1">Để trống = dùng model mặc định của provider.</div>
+              </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+              <button class="btn btn-primary" id="btnKiemTraAI" onclick="kiemTraAI()"><i class="fa-solid fa-plug me-1"></i> Kiểm tra kết nối</button>
+              <button class="btn btn-success" onclick="luuCauHinhAI()"><i class="fa-solid fa-floppy-disk me-1"></i> Lưu cấu hình</button>
+            </div>
+            <div id="aiKetQua" class="mt-3"></div>
+          </div>
+        </div>
+      </div>
+
     </div>
+  </div>
 
-    <div class="card">
-      <h2>📡 Trạng thái trực tiếp</h2>
-      <div class="chips">
-        <div class="chip">Trạng thái: <b id="tt-trang-thai">Chưa chạy</b></div>
-        <div class="chip">Trang hiện tại: <b id="tt-trang">—</b></div>
-        <div class="chip">Bài viết: <b id="tt-so-bai">0</b></div>
-        <div class="chip">Ảnh đã tải: <b id="tt-so-anh">0</b></div>
-      </div>
-      <div class="log" id="log" style="margin-top:12px"></div>
-    </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let currentPostData = null;
+    let activeVersionIndex = 1;
+    let captionVersions = { 1: '', 2: '', 3: '' };
+    let chosenVersion = 1;
+    let poolDataCache = [];
+    let phienCache = [];
+    let phienHoanThanhCache = [];
 
-    <div class="card">
-      <h2>🕒 Bài viết đang cào (mới nhất lên đầu)</h2>
-      <div class="bang-wrap" style="max-height:320px">
-        <table>
-          <thead><tr><th>#</th><th>Trang</th><th>Nội dung</th><th>Ảnh</th><th>Cảm xúc</th><th>Bình luận</th><th>Chia sẻ</th></tr></thead>
-          <tbody id="bang-live"><tr><td colspan="7" class="empty">Chưa có bài nào — bấm "Bắt đầu cào" để xem trực tiếp.</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= TAB KẾT QUẢ ================= -->
-  <section id="tab-ket-qua" class="tab">
-    <div class="card">
-      <h2>📋 Kết quả các trang đã cào</h2>
-      <div class="kq-tools">
-        <div style="min-width:200px"><label for="loc-trang">Chọn trang</label>
-          <select id="loc-trang" onchange="locKetQua()"></select></div>
-        <div style="min-width:180px"><label for="loc-muc">Lọc theo mức tiềm năng</label>
-          <select id="loc-muc" onchange="locKetQua()">
-            <option value="TAT_CA">Tất cả</option>
-            <option value="CAO">CAO 🔥</option>
-            <option value="TRUNG_BINH">TRUNG_BINH</option>
-            <option value="THAP">THAP</option>
-          </select></div>
-        <div style="flex:1"></div>
-        <button class="btn green" onclick="taiExcel()">📥 Tải file Excel</button>
-        <button class="btn gray" onclick="loadKetQua()">🔄 Làm mới</button>
-      </div>
-      <div class="chips kq-chips">
-        <div class="chip">Tổng bài: <b id="kq-bai">0</b></div>
-        <div class="chip">Tổng cảm xúc: <b id="kq-camxuc">0</b></div>
-        <div class="chip">Tổng bình luận: <b id="kq-binh-luan">0</b></div>
-        <div class="chip">File Excel: <b id="kq-xlsx">—</b></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="bang-wrap">
-        <table>
-          <thead>
-            <tr><th>Ảnh</th><th>Nội dung bài viết</th><th>Cảm xúc</th><th>Bình luận</th><th>Chia sẻ</th><th>Điểm</th><th>Mức tiềm năng</th><th>Link</th></tr>
-          </thead>
-          <tbody id="bang-ket-qua"><tr><td colspan="8" class="empty">Đang tải...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-</main>
-
-<script>
-"use strict";
-const $ = id => document.getElementById(id);
-let tatCaKetQua = [];
-let dangChay = false;
-let es = null;
-
-/* ---------------- Tab ---------------- */
-function chonTab(ten) {
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
-  $("tab-" + ten).classList.add("active");
-  $("tab-btn-" + ten).classList.add("active");
-  if (ten === "ket-qua") loadKetQua();
-}
-
-/* ---------------- Log ---------------- */
-function ghiLog(text, loai) {
-  const d = document.createElement("div");
-  d.className = loai || "";
-  d.textContent = "[" + new Date().toLocaleTimeString("vi-VN") + "] " + text;
-  $("log").appendChild(d);
-  $("log").scrollTop = $("log").scrollHeight;
-}
-
-/* ---------------- Luồng sự kiện (SSE) ---------------- */
-function ketNoiSuKien() {
-  if (es) es.close();
-  es = new EventSource("/api/su_kien");
-  es.onmessage = e => {
-    const s = JSON.parse(e.data);
-    switch (s.loai) {
-      case "bat_dau":
-        ghiLog("▶ Bắt đầu cào: " + s.trang_ho.join(", ") + " (" + s.per_page + " bài/trang)", "info");
-        break;
-      case "log":
-        ghiLog(s.noi_dung, "info");
-        break;
-      case "trang_bat_dau":
-        $("tt-trang").textContent = s.page;
-        $("tt-trang-thai").textContent = "Đang cào";
-        ghiLog("→ Bắt đầu trang: " + s.page + (s.gioi_han ? " (tối đa " + s.gioi_han + " bài)" : ""), "info");
-        break;
-      case "post":
-        themDongLive(s);
-        break;
-      case "anh":
-        $("tt-so-anh").textContent = Number($("tt-so-anh").textContent) + 1;
-        break;
-      case "trang_xong":
-        ghiLog("✓ Xong trang " + s.page + ": " + s.so_bai + " bài", "ok");
-        break;
-      case "khong_bai":
-        ghiLog("⚠ Không lấy được bài nào ở trang " + s.page + " (cần cookies hợp lệ!)", "err");
-        break;
-      case "xong":
-        $("tt-trang-thai").textContent = "Hoàn thành";
-        $("tt-trang").textContent = "—";
-        ghiLog("🏁 HOÀN THÀNH: " + s.so_bai + " bài viết.", "ok");
-        // TRẢ NÚT VỀ BÌNH THƯỜNG — trước đây quên nên nút cứ kẹt "đang chạy"
-        dangChay = false;
-        $("btn-bat-dau").disabled = false;
-        $("btn-dung").disabled = true;
-        $("thong-bao").textContent = "✅ Hoàn thành: " + s.so_bai + " bài viết.";
-        $("thong-bao").className = "ok";
-        loadKetQua();
-        break;
-      case "loi":
-        ghiLog("❌ Lỗi: " + s.noi_dung, "err");
-        break;
+    function showToast(msg) {
+      document.getElementById('toastMsg').innerText = msg;
+      const t = new bootstrap.Toast(document.getElementById('liveToast'));
+      t.show();
     }
-  };
-  es.onerror = () => { /* EventSource tự kết nối lại */ };
-}
 
-function themDongLive(s) {
-  const p = s.post;
-  $("tt-so-bai").textContent = s.stt;
-  $("tt-so-anh").textContent = Number($("tt-so-anh").textContent); // không reset
-  const tr = document.createElement("tr");
-  tr.className = "live-row-flash";
-  const td = (html) => { const t = document.createElement("td"); t.innerHTML = html; return t; };
-  tr.appendChild(td(s.stt));
-  tr.appendChild(td("<b>" + esc(s.page) + "</b>"));
-  const nd = td(esc((p.text || "").slice(0, 160)) + ((p.text || "").length > 160 ? "…" : "") + hashtagHtml(p));
-  nd.className = "noi-dung";
-  tr.appendChild(nd);
-  tr.appendChild(td(p.images_da_tai ? p.images_da_tai.length : (p.images || []).length));
-  tr.appendChild(td('<span class="so">' + soDep(p.likes) + "</span>"));
-  tr.appendChild(td('<span class="so">' + soDep(p.comments) + "</span>"));
-  tr.appendChild(td('<span class="so">' + soDep(p.shares) + "</span>"));
-  $("bang-live").prepend(tr);
-  while ($("bang-live").children.length > 300) $("bang-live").lastElementChild.remove();
-}
+    function chuyenTab(tabId) {
+      const tabTrigger = new bootstrap.Tab(document.getElementById(tabId + '-tab'));
+      tabTrigger.show();
+      if (tabId === 'tab2') taiKhoBai();
+      if (tabId === 'tab4') taiBaiSanSang();
+      if (tabId === 'tab5') { taiBaiHoanThanh(); taiPhienHoanThanh(); }
+    }
 
-/* ---------------- Nút điều khiển ---------------- */
-async function batDau() {
-  const fd = new FormData();
-  fd.append("pages", $("pages").value);
-  fd.append("per_page", $("per_page").value);
-  fd.append("pages_scroll", $("pages_scroll").value);
-  fd.append("delay", $("delay").value);
-  fd.append("cookies", $("cookies").value);
-  fd.append("no_images", $("no_images").checked ? "1" : "0");
-  const r = await fetch("/api/cao", { method: "POST", body: fd });
-  const j = await r.json();
-  if (!j.ok) { ghiLog("⚠ " + j.loi, "err"); return; }
-  dangChay = true;
-  $("btn-bat-dau").disabled = true;
-  $("btn-dung").disabled = false;
-  $("bang-live").innerHTML = '<tr><td colspan="7" class="empty">Đang cào...</td></tr>';
-  $("thong-bao").textContent = "Đang cào...";
-  $("thong-bao").className = "run";
-  $("tt-so-bai").textContent = "0";
-  $("tt-so-anh").textContent = "0";
-  $("tt-trang-thai").textContent = "Bắt đầu";
-}
+    function kiemTraCookie() {
+      const f = document.getElementById('scrapeCookies').value;
+      fetch('/api/kiem_tra_cookies', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({file: f})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) showToast('✅ Cookies hợp lệ: ' + d.thong_bao);
+        else showToast('❌ Lỗi cookies: ' + d.loi);
+      });
+    }
 
-async function dungLai() {
-  await fetch("/api/dung", { method: "POST" });
-  ghiLog("⏹ Đã gửi lệnh dừng...", "err");
-}
+    function batDauCao() {
+      const trang = document.getElementById('scrapePages').value;
+      if(!trang.trim()) return showToast('Vui lòng nhập ít nhất 1 trang!');
 
-async function kiemTraCookies() {
-  const btn = $("btn-kiem-tra");
-  btn.disabled = true;
-  btn.textContent = "⏳ Đang kiểm tra...";
-  const fd = new FormData();
-  fd.append("cookies", $("cookies").value);
-  try {
-    const r = await fetch("/api/kiem_tra_cookies", { method: "POST", body: fd });
-    const j = await r.json();
-    ghiLog("🔎 Cookies: " + j.noi_dung, j.ok ? "ok" : "err");
-    $("thong-bao").textContent = j.noi_dung;
-    $("thong-bao").className = j.ok ? "ok" : "err";
-  } catch (e) {
-    ghiLog("🔎 Lỗi khi kiểm tra cookies: " + e, "err");
-  }
-  btn.disabled = false;
-  btn.textContent = "🔎 Kiểm tra cookies";
-}
+      document.getElementById('btnStartScrape').classList.add('d-none');
+      document.getElementById('btnStopScrape').classList.remove('d-none');
+      document.getElementById('scrapeStatusText').className = 'badge bg-primary';
+      document.getElementById('scrapeStatusText').innerText = 'Đang cào...';
 
-/* ---------------- Kết quả ---------------- */
-async function loadKetQua() {
-  $("bang-ket-qua").innerHTML = '<tr><td colspan="8" class="empty">Đang tải...</td></tr>';
-  try {
-    const r = await fetch("/api/ket_qua");
-    tatCaKetQua = await r.json();
-  } catch (e) {
-    tatCaKetQua = [];
-  }
-  if (!tatCaKetQua.length) {
-    $("bang-ket-qua").innerHTML = '<tr><td colspan="8" class="empty">Chưa có dữ liệu — qua tab "Cào dữ liệu" để bắt đầu. (Cần file du_lieu_*.json có dữ liệu)</td></tr>';
-    $("kq-bai").textContent = "0"; $("kq-camxuc").textContent = "0"; $("kq-binh-luan").textContent = "0";
-    return;
-  }
+      fetch('/api/bat_dau', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          trang: trang,
+          per_page: document.getElementById('scrapePerPage').value,
+          pages: document.getElementById('scrapeScroll').value,
+          delay: document.getElementById('scrapeDelay').value,
+          cookies: document.getElementById('scrapeCookies').value
+        })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) {
+          showToast('❌ Lỗi: ' + d.loi);
+          dungCaoUI();
+        }
+      });
+    }
 
-  const sel = $("loc-trang");
-  const giaTriCu = sel.value;
-  sel.innerHTML = '<option value="TAT_CA">Tất cả trang</option>' +
-    tatCaKetQua.map(k => '<option value="' + esc(k.trang) + '">' + esc(k.trang) + " (" + k.so_bai + " bài)</option>").join("");
-  if (tatCaKetQua.some(k => k.trang === giaTriCu)) sel.value = giaTriCu;
+    function dungCao() {
+      fetch('/api/dung', {method: 'POST'})
+      .then(r => r.json())
+      .then(() => {
+        dungCaoUI();
+        showToast('Đã dừng cào.');
+      });
+    }
 
-  const xlsx = await fetch("/api/xlsx").then(r => r.ok ? r.headers.get("Content-Disposition") : null).catch(() => null);
-  $("kq-xlsx").textContent = "có ✅";
-  locKetQua();
-}
+    function dungCaoUI() {
+      document.getElementById('btnStartScrape').classList.remove('d-none');
+      document.getElementById('btnStopScrape').classList.add('d-none');
+      document.getElementById('scrapeStatusText').className = 'badge bg-secondary';
+      document.getElementById('scrapeStatusText').innerText = 'Đã dừng';
+    }
 
-function locKetQua() {
-  const trang = $("loc-trang").value;
-  const muc = $("loc-muc").value;
-  let ds = [];
-  for (const k of tatCaKetQua) {
-    if (trang !== "TAT_CA" && k.trang !== trang) continue;
-    for (const p of k.posts) ds.push(Object.assign({ _trang: k.trang }, p));
-  }
-  if (muc !== "TAT_CA") ds = ds.filter(p => p.muc_tiem_nang === muc);
-  ds.sort((a, b) => (b.diem_tiem_nang || 0) - (a.diem_tiem_nang || 0));
+    function chayCaLuong() {
+      const trang = document.getElementById('scrapePages').value;
+      if(!trang.trim()) return showToast('Vui lòng nhập ít nhất 1 trang nguồn!');
 
-  const tongCamXuc = ds.reduce((s, p) => s + (p.likes || 0), 0);
-  const tongBl = ds.reduce((s, p) => s + (p.comments || 0), 0);
-  $("kq-bai").textContent = ds.length;
-  $("kq-camxuc").textContent = soDep(tongCamXuc);
-  $("kq-binh-luan").textContent = soDep(tongBl);
+      document.getElementById('btnCaLuong').disabled = true;
+      document.getElementById('btnStartScrape').classList.add('d-none');
+      document.getElementById('btnStopScrape').classList.remove('d-none');
+      document.getElementById('scrapeStatusText').className = 'badge bg-warning';
+      document.getElementById('scrapeStatusText').innerText = 'Đang chạy luồng...';
+      document.getElementById('scrapeLogs').innerText = '⚡ Bắt đầu chạy cả luồng (Cào → Viết lại → Chỉnh Ảnh → CSV)...';
 
-  if (!ds.length) {
-    $("bang-ket-qua").innerHTML = '<tr><td colspan="8" class="empty">Không có bài nào khớp bộ lọc.</td></tr>';
-    return;
-  }
+      fetch('/api/chay_ca_luong', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          trang: trang,
+          per_page: document.getElementById('scrapePerPage').value,
+          pages: document.getElementById('scrapeScroll').value,
+          delay: document.getElementById('scrapeDelay').value,
+          cookies: document.getElementById('scrapeCookies').value,
+          format_type: '1:1'
+        })
+      })
+      .then(r => r.json())
+      .then(d => { if(!d.ok) showToast('❌ Lỗi: ' + d.loi); });
+    }
 
-  const tbody = $("bang-ket-qua");
-  tbody.innerHTML = "";
-  for (const p of ds) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = anhHtml(p) + noiDungHtml(p) + soHtml(p.likes) + soHtml(p.comments)
-      + soHtml(p.shares) + soHtml(p.diem_tiem_nang) + mucHtml(p) + linkHtml(p);
-    tbody.appendChild(tr);
-  }
-}
+    function xuatCsv() {
+      showToast('⏳ Đang đóng gói CSV...');
+      fetch('/api/xuat_csv', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) {
+          document.getElementById('btnDownloadCsv').href = '/api/tai_csv?file=' + encodeURIComponent(d.csv_path);
+          document.getElementById('csvDownloadBox').classList.remove('d-none');
+          showToast(`📄 Đã xuất ${d.so_dong} bài ra CSV!`);
+        } else showToast('❌ Lỗi: ' + d.loi);
+      });
+    }
 
-function anhHtml(p) {
-  const ds = p.images_da_tai || [];
-  if (!ds.length) return "<td><span style='color:#94a3b8'>—</span></td>";
-  const thumbs = ds.slice(0, 4).map(path => {
-    const enc = path.split("/").map(encodeURIComponent).join("/");
-    return '<a href="/anh/' + enc + '" target="_blank"><img src="/anh/' + enc + '" loading="lazy" onerror="this.style.display=\'none\'"></a>';
-  }).join("");
-  return '<td><div class="thumbs">' + thumbs + (ds.length > 4 ? "<span style='font-size:11px;color:var(--muted)'>+" + (ds.length - 4) + "</span>" : "") + "</div></td>";
-}
-function noiDungHtml(p) {
-  const trang = p._trang ? '<span style="font-size:11px;color:var(--muted)">' + esc(p._trang) + " · " + esc(p.post_id) + "</span><br>" : "";
-  // Hashtag hiển thị NGAY TRONG ô nội dung, xuống dòng phía dưới bài viết
-  return '<td><div class="noi-dung">' + trang + esc(p.text || "(không có văn bản)")
-    + hashtagHtml(p) + "</div></td>";
-}
-function hashtagHtml(p) {
-  const ds = p.hashtags || [];
-  if (!ds.length) return "";
-  return '<div style="margin-top:6px">' + ds.slice(0, 12).map(h => '<span class="hashtag">' + esc(h) + "</span>").join("")
-    + (ds.length > 12 ? "<span style='font-size:11px;color:var(--muted)'>+" + (ds.length - 12) + "</span>" : "") + "</div>";
-}
-function soHtml(v) { return '<td><span class="so">' + soDep(v) + "</span></td>"; }
-function mucHtml(p) {
-  const muc = p.muc_tiem_nang || "—";
-  const cls = ["CAO", "TRUNG_BINH", "THAP"].includes(muc) ? muc : "na";
-  return '<td><span class="badge badge-' + cls + '">' + esc(muc) + "</span></td>";
-}
-function linkHtml(p) {
-  return p.post_url ? '<td><a class="link" href="' + esc(p.post_url) + '" target="_blank">Mở bài viết ↗</a></td>'
-    : "<td><span style='color:#94a3b8'>—</span></td>";
-}
+    function moThuMucCsv() {
+      fetch('/api/mo_thu_muc', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder: ''})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) showToast('📁 Đã mở thư mục du_lieu_fb');
+        else showToast('❌ ' + d.loi);
+      });
+    }
 
-function taiExcel() { location.href = "/api/xlsx"; }
+    const evtSource = new EventSource('/api/su_kien');
+    evtSource.onmessage = function(e) {
+      const logBox = document.getElementById('scrapeLogs');
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.loai === 'post') {
+          logBox.innerHTML += `\n[+] Cào được bài: ${msg.post.post_id} - ${(msg.post.text || '').substring(0, 60)}...`;
+        } else if (msg.loai === 'log' || msg.loai === 'thong_bao') {
+          logBox.innerHTML += `\n${msg.noi_dung}`;
+        } else if (msg.loai === 'trang_bat_dau') {
+          logBox.innerHTML += `\n\n--- Bắt đầu trang: ${msg.page} ---`;
+        } else if (msg.loai === 'xong') {
+          logBox.innerHTML += `\n[✓] Hoàn thành cào dữ liệu: ${msg.so_bai} bài viết.`;
+          dungCaoUI();
+          document.getElementById('btnCaLuong').disabled = false;
+          if (msg.xlsx) {
+            document.getElementById('btnDownloadExcel').href = `/api/tai_xlsx?file=${encodeURIComponent(msg.xlsx)}`;
+          } else {
+            document.getElementById('btnDownloadExcel').href = `/api/tai_xlsx`;
+          }
+          document.getElementById('excelDownloadBox').classList.remove('d-none');
+          if (msg.csv) {
+            document.getElementById('btnDownloadCsv').href = '/api/tai_csv?file=' + encodeURIComponent(msg.csv);
+            document.getElementById('csvDownloadBox').classList.remove('d-none');
+          }
+          // Sau khi cào xong phiên mới, tự chuyển Kho Bài Viết sang phiên mới nhất
+          const selPhien2 = document.getElementById('filterPhien');
+          if (selPhien2) selPhien2.value = '';
+          taiKhoBai(true);
+          showToast(`🎉 ${msg.thong_bao || ('Cào xong ' + msg.so_bai + ' bài viết!')}`);
+        } else if (msg.loai === 'loi') {
+          logBox.innerHTML += `\n[❌ LỖI] ${msg.noi_dung}`;
+          dungCaoUI();
+        }
+        logBox.scrollTop = logBox.scrollHeight;
+      } catch(err){}
+    };
 
-/* ---------------- Tiện ích ---------------- */
-function esc(s) {
-  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-function soDep(v) {
-  const n = Number(v || 0);
-  return n.toLocaleString("vi-VN");
-}
+    function taiFilters() {
+      fetch('/api/pool/filters')
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) {
+          const kSel = document.getElementById('filterKey');
+          const nvSel = document.getElementById('filterNv');
+          kSel.innerHTML = '<option value="ALL">Tất cả KEY</option>';
+          nvSel.innerHTML = '<option value="ALL">Tất cả Nhân vật</option>';
+          d.keys.forEach(k => kSel.innerHTML += `<option value="${k}">${k}</option>`);
+          d.nhan_vats.forEach(nv => nvSel.innerHTML += `<option value="${nv}">${nv}</option>`);
+        }
+      });
+    }
 
-/* ---------------- Khởi động ---------------- */
-async function khoiDong() {
-  ketNoiSuKien();
-  const tt = await fetch("/api/trang_thai").then(r => r.json());
-  if (tt.dang_chay) {
-    dangChay = true;
-    $("btn-bat-dau").disabled = true;
-    $("btn-dung").disabled = false;
-    $("tt-trang-thai").textContent = "Đang cào";
-    $("tt-trang").textContent = tt.trang_hien_tai || "—";
-    $("tt-so-bai").textContent = tt.so_bai;
-    $("tt-so-anh").textContent = tt.so_anh;
-    $("thong-bao").textContent = tt.thong_bao || "Đang cào...";
-    $("thong-bao").className = "run";
-  }
-  loadKetQua();
-}
-khoiDong();
-</script>
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g,
+        c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function capNhatPhienInfo() {
+      const sel = document.getElementById('filterPhien');
+      const p = phienCache.find(x => x.phien === sel.value);
+      const el = document.getElementById('phienTrang');
+      if (p) {
+        el.innerHTML = `<span class="badge bg-info text-dark"><i class="fa-solid fa-globe me-1"></i>${p.so_bai} bài</span> <span class="ms-2">Trang đã cào: <strong>${esc((p.trang||[]).join(' • '))}</strong></span>`;
+        el.classList.remove('d-none');
+      } else {
+        el.innerHTML = '';
+        el.classList.add('d-none');
+      }
+      // Chỉ lọc "chưa chỉnh sửa" khi đã chọn phiên
+      const ck = document.getElementById('chkChuaXuLy');
+      ck.disabled = !sel.value;
+      if (!sel.value) ck.checked = false;
+    }
+
+    function taiPhien(force) {
+      // Đã có cache và không bắt buộc refresh → giữ luôn (tránh gọi lại khi gõ tìm kiếm).
+      if (phienCache.length && !force) {
+        capNhatPhienInfo();
+        return Promise.resolve();
+      }
+      return fetch('/api/pool/phien')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) return;
+        phienCache = d.data || [];
+        const sel = document.getElementById('filterPhien');
+        const prev = sel.value;
+        if (phienCache.length === 0) {
+          sel.innerHTML = '<option value="">— Chưa có phiên cào —</option>';
+          capNhatPhienInfo();
+          return;
+        }
+        sel.innerHTML = '<option value="">— Tất cả phiên —</option>';
+        phienCache.forEach(p => {
+          sel.innerHTML += `<option value="${esc(p.phien)}">${esc(p.phien)} — ${p.so_bai} bài (${p.so_chua_xu_ly} chưa xử lý)</option>`;
+        });
+        // Giữ lựa chọn cũ nếu còn, không thì mặc định phiên mới nhất (đã sort giảm dần).
+        sel.value = (prev && phienCache.some(p => p.phien === prev)) ? prev : phienCache[0].phien;
+        capNhatPhienInfo();
+      });
+    }
+
+    async function taiKhoBai(force) {
+      await Promise.all([taiPhien(force), taiFilters()]);
+      const k = document.getElementById('filterKey').value;
+      const nv = document.getElementById('filterNv').value;
+      const st = document.getElementById('filterStatus').value;
+      const search = document.getElementById('filterSearch').value;
+      const sort = document.getElementById('filterSort').value;
+      const phien = document.getElementById('filterPhien').value;
+      const chiChua = document.getElementById('chkChuaXuLy').checked;
+
+      let url = `/api/pool?key=${encodeURIComponent(k)}&nhan_vat=${encodeURIComponent(nv)}&trang_thai=${encodeURIComponent(st)}&search=${encodeURIComponent(search)}&sort_by=${encodeURIComponent(sort)}`;
+      if (phien) url += `&phien=${encodeURIComponent(phien)}`;
+      if (phien && chiChua) url += `&chi_chua_xu_ly=1`;
+
+      fetch(url)
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return;
+        poolDataCache = d.data || [];
+        document.getElementById('poolCountBadge').innerText = poolDataCache.length;
+        renderPoolTable(poolDataCache);
+      });
+    }
+
+    function renderPoolTable(list) {
+      const tbody = document.getElementById('poolTableBody');
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Không tìm thấy bài viết nào.</td></tr>';
+        return;
+      }
+
+      let html = '';
+      list.forEach((item) => {
+        const st = item.Status || 'NEW';
+        const media = item.Media || '';
+        const cap = item.Caption || '';
+        const likes = item.cam_xuc_num || 0;
+        const cmts = item.binh_luan_num || 0;
+        const shares = item.chia_se_num || 0;
+        const cid = item['Content ID'] || '';
+
+        html += `
+          <tr>
+            <td class="text-center">
+              <input type="checkbox" class="form-check-input row-checkbox" value="${cid}" onchange="updateSelectedCount()">
+            </td>
+            <td>
+              ${media ? `<img src="${media}" class="img-thumb" onclick="window.open('${media}')">` : '<span class="badge bg-light text-muted">No Img</span>'}
+            </td>
+            <td>
+              <span class="caption-preview" title="${cap.replace(/"/g, '&quot;')}">${cap || '<i>(Không có text)</i>'}</span>
+            </td>
+            <td><span class="badge bg-light text-dark border">${item.KEY || '-'}</span></td>
+            <td><strong class="text-primary">${item['Nhân vật/chủ đề'] || 'Chung'}</strong></td>
+            <td><small class="text-muted">👍 ${likes} | 💬 ${cmts} | 🔄 ${shares}</small></td>
+            <td><small class="text-muted">${item['Thời gian đăng'] || '-'}</small></td>
+            <td><span class="badge badge-status badge-${st}">${st}</span>${Number(item.So_lan_trung || 0) > 0 ? `<span class="badge bg-warning text-dark ms-1" title="Bài này đã cào trùng ${Number(item.So_lan_trung)} lần">trùng ${Number(item.So_lan_trung)}×</span>` : ''}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-primary" onclick="moChiTietXuLy('${cid}')">
+                <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Xử Lý
+              </button>
+              <button class="btn btn-sm btn-outline-danger ms-1" title="Xóa bài" onclick="xoaMotBai('${cid}')">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = html;
+      updateSelectedCount();
+    }
+
+    function toggleSelectAll(master) {
+      const cbs = document.querySelectorAll('.row-checkbox');
+      cbs.forEach(cb => cb.checked = master.checked);
+      updateSelectedCount();
+    }
+
+    function updateSelectedCount() {
+      const cbs = document.querySelectorAll('.row-checkbox:checked');
+      document.getElementById('selectedCount').innerText = cbs.length;
+    }
+
+    function xoaMotBai(cid) {
+      if (!confirm('Xóa bài viết này khỏi Content Pool?')) return;
+      fetch('/api/pool/xoa', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content_id: cid})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) { showToast(`🗑 Đã xóa ${d.da_xoa} bài`); taiKhoBai(); }
+        else showToast(d.loi || 'Xóa thất bại');
+      });
+    }
+
+    function xoaBaiDaChon() {
+      const cbs = document.querySelectorAll('.row-checkbox:checked');
+      const ids = Array.from(cbs).map(cb => cb.value);
+      if (ids.length === 0) return showToast('Vui lòng tick chọn ít nhất 1 bài!');
+      if (!confirm(`Xóa ${ids.length} bài viết đã chọn khỏi Content Pool?`)) return;
+      fetch('/api/pool/xoa', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: ids})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) { showToast(`🗑 Đã xóa ${d.da_xoa} bài`); taiKhoBai(); }
+        else showToast(d.loi || 'Xóa thất bại');
+      });
+    }
+
+    function chayXuLyHangLoat() {
+      const cbs = document.querySelectorAll('.row-checkbox:checked');
+      const ids = Array.from(cbs).map(cb => cb.value);
+      if (ids.length === 0) return showToast('Vui lòng tick chọn ít nhất 1 bài!');
+
+      const fmt = document.getElementById('batchFormat').value;
+      const box = document.getElementById('batchProgressBox');
+      box.classList.remove('d-none');
+
+      fetch('/api/xu_ly_hang_loat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: ids, format_type: fmt})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) {
+          showToast(`⚡ Đang xử lý ${ids.length} bài viết hàng loạt...`);
+          checkBatchProgress();
+        } else {
+          showToast('❌ Lỗi: ' + d.loi);
+        }
+      });
+    }
+
+    function checkBatchProgress() {
+      const interval = setInterval(() => {
+        fetch('/api/tien_do_hang_loat')
+        .then(r => r.json())
+        .then(d => {
+          const pct = d.tong_so > 0 ? Math.round((d.da_xong / d.tong_so) * 100) : 0;
+          document.getElementById('batchProgressBar').style.width = pct + '%';
+          document.getElementById('batchProgressText').innerText = `${d.da_xong} / ${d.tong_so} bài (${pct}%)`;
+
+          if (d.hoan_thanh || !d.dang_chay) {
+            clearInterval(interval);
+            setTimeout(() => {
+              document.getElementById('batchProgressBox').classList.add('d-none');
+              showToast('🎉 Xử lý hàng loạt hoàn tất!');
+              taiKhoBai();
+            }, 1500);
+          }
+        });
+      }, 2000);
+    }
+
+    function moChiTietXuLy(cid) {
+      fetch(`/api/pool/chi_tiet/${encodeURIComponent(cid)}`)
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return showToast('❌ ' + d.loi);
+        currentPostData = d.data;
+        renderChiTiet(currentPostData);
+        chuyenTab('tab3');
+      });
+    }
+
+    function renderChiTiet(data) {
+      document.getElementById('emptyTab3').classList.add('d-none');
+      document.getElementById('contentTab3').classList.remove('d-none');
+
+      const cid = data['Content ID'];
+      document.getElementById('detailCid').innerText = 'Bài viết: ' + cid;
+      document.getElementById('detailKey').innerText = 'KEY: ' + (data.KEY || 'Chung');
+      document.getElementById('detailNv').innerText = 'NV: ' + (data['Nhân vật/chủ đề'] || 'Chung');
+      
+      const st = data.Status || 'NEW';
+      const badge = document.getElementById('detailStatusBadge');
+      badge.className = `badge badge-status badge-${st}`;
+      badge.innerText = st;
+
+      document.getElementById('detailSource').innerText = data.Source || 'Facebook';
+      document.getElementById('detailTime').innerText = data['Thời gian đăng'] || 'N/A';
+      document.getElementById('detailLikes').innerText = data['Cảm xúc'] || '0';
+      document.getElementById('detailCmts').innerText = data['Bình luận'] || '0';
+      document.getElementById('detailShares').innerText = data['Chia sẻ'] || '0';
+      document.getElementById('detailRawCap').innerText = data.Caption || '(Rỗng)';
+      document.getElementById('detailRawImg').src = data.Media || '';
+
+      const goi = data.goi_fb || {};
+      captionVersions[1] = goi.caption_version_1 || data['Caption mới'] || '';
+      captionVersions[2] = goi.caption_version_2 || '';
+      captionVersions[3] = goi.caption_version_3 || '';
+
+      document.getElementById('detailArticleUrl').value = goi.article_url || data['Article URL'] || '';
+      document.getElementById('detailArticleContent').value = goi.bai_bao || data['Bài báo'] || '';
+      updateWordCount();
+
+      if (goi.anh_path) {
+        document.getElementById('detailProcessedImg').src = '/media/' + goi.anh_path.split('du_lieu_fb/')[1];
+        document.getElementById('detailImgPath').innerText = goi.anh_path;
+      } else {
+        document.getElementById('detailProcessedImg').src = data.Media || '';
+        document.getElementById('detailImgPath').innerText = 'Chưa cắt ảnh';
+      }
+
+      chonVersionTab(1);
+    }
+
+    function chonVersionTab(v) {
+      activeVersionIndex = v;
+      const btns = document.querySelectorAll('.version-tab-btn');
+      btns.forEach((btn, idx) => {
+        if(idx + 1 === v) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+      document.getElementById('activeCaptionText').value = captionVersions[v] || '';
+    }
+
+    document.getElementById('activeCaptionText').addEventListener('input', function() {
+      captionVersions[activeVersionIndex] = this.value;
+    });
+
+    document.getElementById('detailArticleContent').addEventListener('input', updateWordCount);
+
+    function updateWordCount() {
+      const text = document.getElementById('detailArticleContent').value || '';
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      document.getElementById('articleWordCount').innerText = words + ' từ';
+    }
+
+    function datLamMacDinh(v) {
+      chosenVersion = v;
+    }
+
+    function copyCaptionHienTai() {
+      const t = document.getElementById('activeCaptionText').value;
+      navigator.clipboard.writeText(t).then(() => showToast('📋 Đã copy Caption vào Clipboard!'));
+    }
+
+    function copyBaiBao() {
+      const t = document.getElementById('detailArticleContent').value;
+      navigator.clipboard.writeText(t).then(() => showToast('📋 Đã copy Toàn Bộ Bài Báo!'));
+    }
+
+    function copyArticleUrl() {
+      const t = document.getElementById('detailArticleUrl').value;
+      navigator.clipboard.writeText(t).then(() => showToast('📋 Đã copy Link Bài Báo!'));
+    }
+
+    function chayAiChoBaiHienTai() {
+      if(!currentPostData) return;
+      const cid = currentPostData['Content ID'];
+      const fmt = document.getElementById('detailFormatType').value;
+      showToast('⏳ Đang gọi DeepSeek viết bài + xử lý ảnh...');
+
+      fetch(`/api/xu_ly_ai/${encodeURIComponent(cid)}`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({format_type: fmt})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) {
+          showToast('🎉 AI đã sinh xong 3 Caption và Bài báo!');
+          moChiTietXuLy(cid);
+        } else {
+          showToast('❌ Lỗi: ' + d.loi);
+        }
+      });
+    }
+
+    function vietLaiMoiCaption() {
+      if(!currentPostData) return;
+      const cid = currentPostData['Content ID'];
+      showToast('⏳ Đang gọi DeepSeek tạo 3 caption mới...');
+      fetch(`/api/viet_lai_caption/${encodeURIComponent(cid)}`, {method: 'POST'})
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) {
+          captionVersions[1] = d.data.version_1 || '';
+          captionVersions[2] = d.data.version_2 || '';
+          captionVersions[3] = d.data.version_3 || '';
+          chonVersionTab(activeVersionIndex);
+          showToast('✅ Đã tạo 3 bản caption mới!');
+        } else showToast('❌ ' + d.loi);
+      });
+    }
+
+    function vietLaiMoiBaiBao() {
+      if(!currentPostData) return;
+      const cid = currentPostData['Content ID'];
+      showToast('⏳ Đang gọi DeepSeek viết lại bài báo...');
+      fetch(`/api/viet_lai_bai_bao/${encodeURIComponent(cid)}`, {method: 'POST'})
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) {
+          document.getElementById('detailArticleContent').value = d.bai_bao || '';
+          updateWordCount();
+          showToast('✅ Đã viết lại bài báo mới!');
+        } else showToast('❌ ' + d.loi);
+      });
+    }
+
+    function catLaiAnh() {
+      showToast('Crop lại ảnh chuẩn...');
+      chayAiChoBaiHienTai();
+    }
+
+    function luuVaXuatGoi() {
+      if(!currentPostData) return;
+      const cid = currentPostData['Content ID'];
+      const capChon = captionVersions[chosenVersion] || captionVersions[1] || '';
+      const payload = {
+        content_id: cid,
+        caption_lua_chon: capChon,
+        caption_version_1: captionVersions[1],
+        caption_version_2: captionVersions[2],
+        caption_version_3: captionVersions[3],
+        bai_bao: document.getElementById('detailArticleContent').value,
+        article_url: document.getElementById('detailArticleUrl').value
+      };
+
+      fetch('/api/luu_chinh_sua', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) {
+          showToast('✅ Đã hoàn thành — chuyển sang Tab 4 để cắt ảnh!');
+          taiKhoBai();
+          chuyenTab('tab4');
+        } else showToast('❌ ' + d.loi);
+      });
+    }
+
+    // ================= TAB 4: Chờ cắt ảnh (SAN_SANG) =================
+    function taiBaiSanSang() {
+      fetch('/api/san_sang')
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return;
+        const list = d.data || [];
+        document.getElementById('readyCountBadge').innerText = list.length;
+        renderReadyPosts(list);
+        document.getElementById('chkTab4All').checked = false;
+        document.getElementById('tab4ErrorBox').innerText = '';
+      });
+    }
+
+    function renderReadyPosts(list) {
+      const container = document.getElementById('readyPostList');
+      if(!list || list.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center py-5 text-muted">Chưa có bài nào chờ cắt ảnh. Hãy chỉnh bài ở Tab 3 rồi bấm <b>Hoàn Thành</b>.</div>';
+        return;
+      }
+
+      let html = '';
+      list.forEach(item => {
+        const cid = item['Content ID'];
+        const url = item.article_url || item['Article URL'] || '';
+        const anh = item.anh_path ? ('/media/' + item.anh_path.split('du_lieu_fb/')[1]) : (item.Media || '');
+        const st = item.Status;
+
+        html += `
+          <div class="col-md-6">
+            <div class="card h-100 shadow-sm border">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                <div class="form-check">
+                  <input class="form-check-input tab4-checkbox" type="checkbox" value="${cid}" onchange="updateTab4Select()">
+                  <label class="form-check-label small fw-bold">Chọn</label>
+                </div>
+                <strong class="text-primary">${cid}</strong>
+                <span class="badge badge-status badge-${st}">${st}</span>
+              </div>
+              <div class="card-body">
+                <div class="d-flex gap-3 mb-3">
+                  <img src="${anh}" class="rounded border" style="width: 110px; height: 110px; object-fit: cover;">
+                  <div class="flex-grow-1">
+                    <div class="small text-muted mb-1">KEY: <strong>${item.KEY || '-'}</strong> | NV: <strong>${item['Nhân vật/chủ đề'] || '-'}</strong></div>
+                    <label class="form-label small fw-bold text-success mb-0"><i class="fa-solid fa-link me-1"></i> Link bài báo (Comment):</label>
+                    <div class="input-group input-group-sm mb-2">
+                      <input type="text" class="form-control" value="${url}" readonly>
+                      <button class="btn btn-outline-success copy-btn" onclick="navigator.clipboard.writeText('${url}').then(() => showToast('📋 Đã copy link bài báo!'))">
+                        <i class="fa-solid fa-copy"></i>
+                      </button>
+                    </div>
+                    <div class="small text-muted mt-1"><i class="fa-solid fa-image me-1"></i> Ảnh sẽ được cắt tỷ lệ ở bước <b>Xử Lí Ảnh</b>.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function toggleTab4All(master) {
+      document.querySelectorAll('.tab4-checkbox').forEach(cb => cb.checked = master.checked);
+    }
+
+    function updateTab4Select() {
+      const n = document.querySelectorAll('.tab4-checkbox:checked').length;
+      document.getElementById('chkTab4All').checked =
+        n > 0 && n === document.querySelectorAll('.tab4-checkbox').length;
+    }
+
+    function xuLyAnhHangLoat() {
+      const ids = Array.from(document.querySelectorAll('.tab4-checkbox:checked')).map(cb => cb.value);
+      if(ids.length === 0) return showToast('Vui lòng tích ít nhất 1 bài để cắt ảnh!');
+      const fmt = document.getElementById('tab4FormatType').value;
+
+      fetch('/api/xu_ly_anh', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: ids, format_type: fmt})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return showToast('❌ ' + d.loi);
+        document.getElementById('tab4ProgressBox').classList.remove('d-none');
+        document.getElementById('tab4ProgressText').innerText = '0 / ' + ids.length;
+        document.getElementById('tab4ProgressBar').style.width = '0%';
+        const timer = setInterval(() => {
+          fetch('/api/tien_do_anh').then(r => r.json()).then(s => {
+            document.getElementById('tab4ProgressText').innerText = s.da_xong + ' / ' + s.tong_so;
+            document.getElementById('tab4ProgressBar').style.width = s.tong_so ? Math.round(s.da_xong * 100 / s.tong_so) + '%' : '0%';
+            if(s.loi && s.loi.length) {
+              document.getElementById('tab4ErrorBox').innerText = '⚠ ' + s.loi.map(l => l.id + ': ' + (l.err || '')).join('; ');
+            }
+            if(s.da_xong >= s.tong_so) {
+              clearInterval(timer);
+              document.getElementById('tab4ProgressBox').classList.add('d-none');
+              showToast('🎉 Đã cắt ảnh xong ' + s.tong_so + ' bài! Các bài đã chuyển sang Tab 5.');
+              taiBaiSanSang();
+            }
+          });
+        }, 1000);
+      });
+    }
+
+    // ================= TAB 5: Hoàn thành (HOAN_THANH) + Xuất Excel =================
+    function taiBaiHoanThanh() {
+      const phien = (document.getElementById('filterPhienHt') || {}).value || '';
+      fetch('/api/hoan_thanh?phien=' + encodeURIComponent(phien))
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return;
+        const list = d.data || [];
+        document.getElementById('hoanThanhCountBadge').innerText = list.length;
+        renderHoanThanhPosts(list);
+        document.getElementById('chkTab5All').checked = false;
+        capNhatPhienHtInfo(list);
+      });
+    }
+
+    function taiPhienHoanThanh(force = false) {
+      if (!force && phienHoanThanhCache.length > 0) return;
+      fetch('/api/hoan_thanh/phien')
+      .then(r => r.json())
+      .then(d => {
+        const sel = document.getElementById('filterPhienHt');
+        if(!sel || !d.ok) return;
+        phienHoanThanhCache = d.data || [];
+        const current = sel.value;
+        let opts = '<option value="">— Tất cả phiên —</option>';
+        phienHoanThanhCache.forEach(p => {
+          const val = typeof p === 'string' ? p : (p.phien || '');
+          const soBai = typeof p === 'string' ? '' : (p.so_bai !== undefined ? ` — ${p.so_bai} bài` : '');
+          opts += `<option value="${val}">${val}${soBai}</option>`;
+        });
+        sel.innerHTML = opts;
+        if (current && phienHoanThanhCache.includes(current)) sel.value = current;
+      });
+    }
+
+    function capNhatPhienHtInfo(list) {
+      const phien = (document.getElementById('filterPhienHt') || {}).value || '';
+      const el = document.getElementById('phienHtTrang');
+      if(!el) return;
+      if (phien) {
+        el.className = 'small';
+        el.innerHTML = `<span class="badge bg-info">Đang xem phiên: ${phien}</span> — <b>${(list||[]).length}</b> bài`;
+      } else {
+        el.className = 'small d-none';
+      }
+    }
+
+    function renderHoanThanhPosts(list) {
+      const container = document.getElementById('hoanThanhList');
+      if(!list || list.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center py-5 text-muted">Chưa có bài nào hoàn thành. Hãy cắt ảnh ở Tab 4.</div>';
+        return;
+      }
+
+      let html = '';
+      list.forEach(item => {
+        const cid = item['Content ID'];
+        const cap = item.caption_lua_chon || item['Caption mới'] || '';
+        const url = item.article_url || item['Article URL'] || '';
+        const folder = item.folder || '';
+        const anh = item.anh_path ? ('/media/' + item.anh_path.split('du_lieu_fb/')[1]) : (item.Media || '');
+        const st = item.Status;
+
+        html += `
+          <div class="col-md-6">
+            <div class="card h-100 shadow-sm border">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
+                <div class="form-check">
+                  <input class="form-check-input tab5-checkbox" type="checkbox" value="${cid}" onchange="updateTab5Select()">
+                  <label class="form-check-label small fw-bold">Chọn</label>
+                </div>
+                <strong class="text-primary">${cid}</strong>
+                <span class="badge badge-status badge-${st}">${st}</span>
+              </div>
+              <div class="card-body">
+                <div class="d-flex gap-3 mb-3">
+                  <img src="${anh}" class="rounded border" style="width: 110px; height: 110px; object-fit: cover;">
+                  <div class="flex-grow-1">
+                    <div class="small text-muted mb-1">KEY: <strong>${item.KEY || '-'}</strong> | NV: <strong>${item['Nhân vật/chủ đề'] || '-'}</strong></div>
+                    <label class="form-label small fw-bold text-success mb-0"><i class="fa-solid fa-link me-1"></i> Link bài báo (Comment):</label>
+                    <div class="input-group input-group-sm mb-2">
+                      <input type="text" class="form-control" value="${url}" readonly>
+                      <button class="btn btn-outline-success copy-btn" onclick="navigator.clipboard.writeText('${url}').then(() => showToast('📋 Đã copy link bài báo!'))">
+                        <i class="fa-solid fa-copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <label class="form-label small fw-bold"><i class="fa-solid fa-quote-left me-1"></i> Caption đã chọn đăng:</label>
+                <div class="p-2 bg-light rounded small border mb-3" style="max-height: 120px; overflow-y: auto;">
+                  ${cap.replace(/\n/g, '<br>')}
+                </div>
+
+                <div class="d-flex gap-2 flex-wrap">
+                  <button class="btn btn-primary btn-sm flex-grow-1 copy-btn" onclick="navigator.clipboard.writeText(\`${cap.replace(/`/g, '\\`')}\`).then(() => showToast('📋 Đã copy Caption đăng FB!'))">
+                    <i class="fa-solid fa-copy me-1"></i> Copy Caption
+                  </button>
+                  <button class="btn btn-outline-secondary btn-sm" onclick="moFolder('${folder.replace(/\\/g, '\\\\')}')">
+                    <i class="fa-solid fa-folder-open me-1"></i> Mở Thư Mục
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function toggleTab5All(master) {
+      document.querySelectorAll('.tab5-checkbox').forEach(cb => cb.checked = master.checked);
+    }
+
+    function updateTab5Select() {
+      const n = document.querySelectorAll('.tab5-checkbox:checked').length;
+      document.getElementById('chkTab5All').checked =
+        n > 0 && n === document.querySelectorAll('.tab5-checkbox').length;
+    }
+
+    function xuatExcelTab5() {
+      const ids = Array.from(document.querySelectorAll('.tab5-checkbox:checked')).map(cb => cb.value);
+      if(ids.length === 0) return showToast('Vui lòng tích các bài hoặc bấm <b>Chọn tất cả bài</b> rồi mới Xuất Excel!');
+      fetch('/api/xuat_excel_tab5', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: ids})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return showToast('❌ ' + d.loi);
+        showToast('📥 Đã xuất Excel ' + d.so_dong + ' bài!');
+        const a = document.createElement('a');
+        a.href = '/api/tai_xlsx?file=' + encodeURIComponent(d.file);
+        a.download = 'hoan_thanh.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+    }
+
+    function moFolder(folder) {
+      fetch('/api/mo_thu_muc', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({folder: folder})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) showToast('📁 Đã mở thư mục trên máy tính');
+        else showToast('❌ ' + d.loi);
+      });
+    }
+
+    function xacNhanDaDang(cid) {
+      fetch('/api/xac_nhan_da_dang', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content_id: cid})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(d.ok) {
+          showToast('✅ Đã xác nhận đăng hoàn tất bài ' + cid);
+          taiBaiSanSang();
+        }
+      });
+    }
+
+    // ===== TAB 6: CẤU HÌNH AI =====
+    function taiCauHinhAI() {
+      fetch('/api/cau_hinh')
+        .then(r => r.json())
+        .then(d => {
+          if(!d.ok) return;
+          document.getElementById('aiProvider').value = d.provider || 'mock';
+          document.getElementById('aiApiKey').value = d.api_key || '';
+          document.getElementById('aiModel').value = d.model || '';
+          document.getElementById('aiKetQua').innerHTML = '';
+        })
+        .catch(() => showToast('❌ Không tải được cấu hình AI'));
+    }
+
+    function kiemTraAI() {
+      const provider = document.getElementById('aiProvider').value;
+      const apiKey = document.getElementById('aiApiKey').value.trim();
+      const model = document.getElementById('aiModel').value.trim();
+      const btn = document.getElementById('btnKiemTraAI');
+      const box = document.getElementById('aiKetQua');
+      box.innerHTML = '<div class="alert alert-info py-2 mb-0 small">⏳ Đang kiểm tra kết nối...</div>';
+      btn.disabled = true;
+      fetch('/api/kiem_tra_ai', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({provider: provider, api_key: apiKey, model: model})
+      })
+        .then(r => r.json())
+        .then(d => {
+          if(d.ok) box.innerHTML = '<div class="alert alert-success py-2 mb-0 small">✅ ' + d.message + '</div>';
+          else box.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">❌ ' + (d.loi || 'Kiểm tra thất bại') + '</div>';
+        })
+        .catch(e => box.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">❌ Lỗi mạng: ' + e + '</div>')
+        .finally(() => btn.disabled = false);
+    }
+
+    function luuCauHinhAI() {
+      const provider = document.getElementById('aiProvider').value;
+      const apiKey = document.getElementById('aiApiKey').value.trim();
+      const model = document.getElementById('aiModel').value.trim();
+      fetch('/api/luu_cau_hinh', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({provider: provider, api_key: apiKey, model: model})
+      })
+        .then(r => r.json())
+        .then(d => {
+          if(d.ok) showToast('✅ ' + d.message);
+          else showToast('❌ ' + (d.loi || 'Lỗi lưu cấu hình'));
+        });
+    }
+
+    taiKhoBai();
+  </script>
 </body>
 </html>
