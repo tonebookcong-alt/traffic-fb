@@ -444,6 +444,34 @@ def api_lay_pool_phien():
     return jsonify({"ok": True, "data": ds})
 
 
+@app.route("/api/chinh_bai", methods=["GET"])
+def api_lay_chinh_bai():
+    """Tab 3: danh sách bài đã chạy AI nhưng CHƯA hoàn thành (PROCESSING), lọc theo phiên."""
+    phien = request.args.get("phien")
+    ds = luong_b.lay_danh_sach_pool(trang_thai="PROCESSING", phien=phien)
+    return jsonify({"ok": True, "tong_so": len(ds), "data": ds})
+
+
+@app.route("/api/chinh_bai/hoan_thanh", methods=["POST"])
+def api_chinh_bai_hoan_thanh():
+    """Tab 3: hoàn thành hàng loạt các bài đã tick → đặt SAN_SANG, chuyển sang Tab 4."""
+    data = request.json or {}
+    ids = data.get("ids") or []
+    if not ids:
+        return jsonify({"ok": False, "loi": "Vui lòng tick chọn ít nhất 1 bài"}), 400
+    res = luong_b.hoan_thanh_hang_loat(ids)
+    return jsonify({"ok": True, "message": f"Đã hoàn thành {res['so_thanh_cong']} bài",
+                    "so_thanh_cong": res["so_thanh_cong"], "so_loi": res["so_loi"],
+                    "loi": res["loi"]})
+
+
+@app.route("/api/chinh_bai/phien", methods=["GET"])
+def api_lay_chinh_bai_phien():
+    """Tab 3: phiên cào chỉ gồm bài đã chạy AI xong."""
+    ds = luong_b.lay_cac_phien_chinh_bai()
+    return jsonify({"ok": True, "data": ds})
+
+
 @app.route("/api/pool/filters", methods=["GET"])
 def api_lay_pool_filters():
     store = lay_store()

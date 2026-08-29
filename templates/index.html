@@ -181,7 +181,7 @@
         </button>
       </li>
       <li class="nav-item">
-        <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3" type="button">
+        <button class="nav-link" id="tab3-tab" data-bs-toggle="tab" data-bs-target="#tab3" type="button" onclick="veDanhSachTab3()">
           <i class="fa-solid fa-wand-magic-sparkles"></i> 3. Xử Lý AI & Chỉnh Bài
         </button>
       </li>
@@ -439,9 +439,50 @@
         <div id="emptyTab3" class="card text-center py-5">
           <div class="card-body">
             <i class="fa-solid fa-wand-magic-sparkles text-muted fs-1 mb-3"></i>
-            <h5>Chưa chọn bài viết nào để xử lý</h5>
-            <p class="text-muted small">Hãy quay lại <strong>Tab 2 (Kho Bài Viết)</strong> và bấm nút <strong>[✍️ Xử Lý Bài Này]</strong>.</p>
+            <h5>Chưa có bài nào để xử lý</h5>
+            <p class="text-muted small">Hãy quay lại <strong>Tab 2 (Kho Bài Viết)</strong>, chọn bài và bấm <strong>[Xử Lý AI Hàng Loạt]</strong> hoặc <strong>[✍️ Xử Lý Bài Này]</strong>.</p>
             <button class="btn btn-primary" onclick="chuyenTab('tab2')"><i class="fa-solid fa-arrow-left me-1"></i> Đến Kho Bài Viết</button>
+          </div>
+        </div>
+
+        <div id="listTab3" class="d-none">
+          <div class="card bg-white p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <h6 class="mb-0 fw-bold"><i class="fa-solid fa-wand-magic-sparkles text-primary me-2"></i> Bài Đã Chạy AI — Tab 3</h6>
+                <span class="text-muted small">Tick các bài muốn hoàn thành rồi bấm <strong>Hoàn Thành</strong> để chuyển sang Tab 4 cắt ảnh.</span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span class="small fw-bold">Đã chọn: <span id="chinhBaiSelectedCount" class="badge bg-primary">0</span> bài</span>
+                <select id="phienChinhBai" class="form-select form-select-sm" style="width: 260px;" onchange="taiDanhSachChinhBai()"></select>
+                <button class="btn btn-sm btn-success" onclick="hoanThanhHangLoatTab3()"><i class="fa-solid fa-circle-check me-1"></i> Hoàn Thành</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="taiDanhSachChinhBai()"><i class="fa-solid fa-rotate-right me-1"></i> Làm mới</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-container shadow-sm">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th style="width: 40px;" class="text-center">
+                    <input type="checkbox" id="chinhBaiSelectAll" class="form-check-input" onchange="toggleChinhBaiSelectAll(this)">
+                  </th>
+                  <th style="width: 60px;">Ảnh</th>
+                  <th>Caption Cũ</th>
+                  <th>Caption Mới (Bản cuối)</th>
+                  <th style="width: 90px;">KEY</th>
+                  <th style="width: 140px;">Nhân vật / Chủ đề</th>
+                  <th style="width: 110px;">Tương tác</th>
+                  <th style="width: 120px;">Thời gian đăng</th>
+                  <th style="width: 110px;">Trạng thái</th>
+                  <th class="text-center" style="width: 100px;">Hành động</th>
+                </tr>
+              </thead>
+              <tbody id="chinhBaiTableBody">
+                <tr><td colspan="10" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -449,7 +490,7 @@
           <div class="card bg-white p-3 mb-3">
             <div class="d-flex justify-content-between align-items-center">
               <div>
-                <button class="btn btn-sm btn-outline-secondary me-2" onclick="chuyenTab('tab2')"><i class="fa-solid fa-arrow-left"></i></button>
+                <button class="btn btn-sm btn-outline-secondary me-2" onclick="veDanhSachTab3()"><i class="fa-solid fa-arrow-left"></i></button>
                 <span class="fw-bold fs-5" id="detailCid">Bài viết: ...</span>
                 <span class="badge bg-light text-dark border ms-2" id="detailKey">KEY: ...</span>
                 <span class="badge bg-light text-dark border ms-1" id="detailNv">NV: ...</span>
@@ -692,6 +733,7 @@
       const tabTrigger = new bootstrap.Tab(document.getElementById(tabId + '-tab'));
       tabTrigger.show();
       if (tabId === 'tab2') taiKhoBai();
+      if (tabId === 'tab3') veDanhSachTab3();
       if (tabId === 'tab4') taiBaiSanSang();
       if (tabId === 'tab5') { taiBaiHoanThanh(); taiPhienHoanThanh(); }
     }
@@ -1069,10 +1111,149 @@
               document.getElementById('batchProgressBox').classList.add('d-none');
               showToast('🎉 Xử lý hàng loạt hoàn tất!');
               taiKhoBai();
+              chuyenTab('tab3');
             }, 1500);
           }
         });
       }, 2000);
+    }
+
+    // ================= TAB 3: Danh sách bài đã chạy AI =================
+    async function veDanhSachTab3() {
+      // Hiện danh sách, ẩn chi tiết + empty
+      document.getElementById('listTab3').classList.remove('d-none');
+      document.getElementById('contentTab3').classList.add('d-none');
+      document.getElementById('emptyTab3').classList.add('d-none');
+      await taiPhienChinhBai();
+      taiDanhSachChinhBai();
+    }
+
+    async function taiPhienChinhBai() {
+      const sel = document.getElementById('phienChinhBai');
+      const prev = sel.value;
+      const d = await (await fetch('/api/chinh_bai/phien')).json();
+      if(!d.ok) return;
+      const ds = d.data || [];
+      sel.innerHTML = '';
+      if(ds.length === 0) {
+        sel.innerHTML = '<option value="">Không có phiên nào</option>';
+        return;
+      }
+      ds.forEach(p => {
+        sel.innerHTML += `<option value="${esc(p.phien)}">${esc(p.phien)} — ${p.so_bai} bài (${p.so_san_sang} sẵn sàng)</option>`;
+      });
+      // Giữ nguyên phiên đang chọn nếu vẫn còn, không thì chọn phiên đầu
+      if(prev && ds.some(p => p.phien === prev)) sel.value = prev;
+      else sel.value = ds[0].phien;
+    }
+
+    function taiDanhSachChinhBai() {
+      const phien = document.getElementById('phienChinhBai').value;
+      const body = document.getElementById('chinhBaiTableBody');
+      body.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>';
+      let url = '/api/chinh_bai';
+      if(phien) url += '?phien=' + encodeURIComponent(phien);
+      fetch(url)
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return;
+        const list = d.data || [];
+        if(list.length === 0) {
+          document.getElementById('listTab3').classList.add('d-none');
+          document.getElementById('contentTab3').classList.add('d-none');
+          document.getElementById('emptyTab3').classList.remove('d-none');
+          const sa = document.getElementById('chinhBaiSelectAll');
+          if(sa) sa.checked = false;
+          capNhatChinhBaiSelectedCount();
+          return;
+        }
+        renderChinhBaiTable(list);
+      });
+    }
+
+    function renderChinhBaiTable(list) {
+      const body = document.getElementById('chinhBaiTableBody');
+      let html = '';
+      list.forEach(item => {
+        const st = item.Status || 'PROCESSING';
+        const capCu = item.Caption || '';
+        const capMoi = item['Caption mới'] || '(chưa có caption mới)';
+        const likes = item.cam_xuc_num || 0;
+        const cmts = item.binh_luan_num || 0;
+        const shares = item.chia_se_num || 0;
+        // Ảnh bản cuối = ảnh gốc nếu chưa có ảnh đã cắt
+        const img = item['Ảnh đăng'] || item.Media || '';
+        const cid = item['Content ID'];
+        html += `<tr>
+          <td class="text-center"><input type="checkbox" class="form-check-input chinhBai-checkbox" value="${esc(cid)}" onchange="capNhatChinhBaiSelectedCount()"></td>
+          <td class="text-center">${img ? `<img src="${esc(img)}" class="rounded border" style="width: 44px; height: 44px; object-fit: cover;">` : '<span class="text-muted">—</span>'}</td>
+          <td class="small" style="max-width: 260px;"><div class="text-truncate" title="${esc(capCu)}">${esc(capCu) || '<span class="text-muted">(rỗng)</span>'}</div></td>
+          <td class="small text-success fw-semibold" style="max-width: 300px;"><div class="text-truncate" title="${esc(capMoi)}">${esc(capMoi)}</div></td>
+          <td class="small"><span class="badge bg-light text-dark border">${esc(item.KEY || 'Chung')}</span></td>
+          <td class="small">${esc(item['Nhân vật/chủ đề'] || 'Chung')}</td>
+          <td class="small">👍${likes} 💬${cmts} 🔄${shares}</td>
+          <td class="small text-muted">${esc(item['Thời gian đăng'] || 'N/A')}</td>
+          <td><span class="badge badge-status badge-${st}">${st}</span></td>
+          <td class="text-center">
+            <button class="btn btn-sm btn-outline-primary" onclick="moChiTietTuDanhSach('${esc(cid)}')"><i class="fa-solid fa-pen me-1"></i> Xử Lý</button>
+          </td>
+        </tr>`;
+      });
+      body.innerHTML = html;
+      document.getElementById('chinhBaiSelectAll').checked = false;
+      capNhatChinhBaiSelectedCount();
+    }
+
+    function capNhatChinhBaiSelectedCount() {
+      const n = document.querySelectorAll('.chinhBai-checkbox:checked').length;
+      const el = document.getElementById('chinhBaiSelectedCount');
+      if(el) el.innerText = n;
+      const sa = document.getElementById('chinhBaiSelectAll');
+      const total = document.querySelectorAll('.chinhBai-checkbox').length;
+      if(sa) sa.checked = total > 0 && n === total;
+    }
+
+    function toggleChinhBaiSelectAll(cb) {
+      document.querySelectorAll('.chinhBai-checkbox').forEach(chk => { chk.checked = cb.checked; });
+      capNhatChinhBaiSelectedCount();
+    }
+
+    function hoanThanhHangLoatTab3() {
+      const cbs = document.querySelectorAll('.chinhBai-checkbox:checked');
+      const ids = Array.from(cbs).map(cb => cb.value);
+      if(ids.length === 0) return showToast('Vui lòng tick chọn ít nhất 1 bài để hoàn thành!');
+      if(!confirm(`Bạn có chắc muốn hoàn thành ${ids.length} bài này không?\nCác bài này sẽ chuyển sang Tab 4 để cắt ảnh.`)) return;
+
+      fetch('/api/chinh_bai/hoan_thanh', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: ids})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return showToast('❌ ' + d.loi);
+        if(d.so_loi && d.so_loi > 0) {
+          showToast(`✅ Hoàn thành ${d.so_thanh_cong} bài (${d.so_loi} bài bỏ qua: đã hoàn thành hoặc lỗi)`);
+        } else {
+          showToast(`🎉 Đã hoàn thành ${d.so_thanh_cong} bài! Chuyển sang Tab 4 để cắt ảnh.`);
+        }
+        taiDanhSachChinhBai();
+        chuyenTab('tab4');
+      });
+    }
+
+    function moChiTietTuDanhSach(cid) {
+      // Mở chi tiết từ danh sách Tab 3
+      document.getElementById('listTab3').classList.add('d-none');
+      document.getElementById('emptyTab3').classList.add('d-none');
+      document.getElementById('contentTab3').classList.remove('d-none');
+      fetch(`/api/pool/chi_tiet/${encodeURIComponent(cid)}`)
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return;
+        currentPostData = d.data;
+        renderChiTiet(currentPostData);
+      });
     }
 
     function moChiTietXuLy(cid) {
@@ -1082,12 +1263,16 @@
         if(!d.ok) return showToast('❌ ' + d.loi);
         currentPostData = d.data;
         renderChiTiet(currentPostData);
-        chuyenTab('tab3');
+        // Chuyển tab 3 trực tiếp (không ép hiện danh sách) vì đang mở chi tiết
+        document.getElementById('listTab3').classList.add('d-none');
+        document.getElementById('contentTab3').classList.remove('d-none');
+        new bootstrap.Tab(document.getElementById('tab3-tab')).show();
       });
     }
 
     function renderChiTiet(data) {
       document.getElementById('emptyTab3').classList.add('d-none');
+      document.getElementById('listTab3').classList.add('d-none');
       document.getElementById('contentTab3').classList.remove('d-none');
 
       const cid = data['Content ID'];

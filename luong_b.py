@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 LUỒNG B — XỬ LÝ NỘI DUNG VÀ XUẤT BẢN CHO WEB UI & ANTIDETECT BROWSER.
 - Đọc / Lọc / Tìm kiếm kho bài viết Content Pool
@@ -21,11 +21,14 @@ from dang_web import dang_bai_web
 
 
 def lay_danh_sach_pool(trang_thai=None, key=None, nhan_vat=None, tim_kiem=None,
-                       sort_by="default", phien=None, chi_chua_xu_ly=False):
+                       sort_by="default", phien=None, chi_chua_xu_ly=False,
+                       nhieu_trang_thai=None):
     """Lấy danh sách bài viết từ Content Pool kèm lọc và sắp xếp.
 
-    `phien`          : chỉ lấy bài thuộc phiên cào này (giá trị `Phien_cao`).
-    `chi_chua_xu_ly` : chỉ lấy bài chưa hoàn thành (Status ∈ NEW, PROCESSING).
+    `phien`            : chỉ lấy bài thuộc phiên cào này (giá trị `Phien_cao`).
+    `chi_chua_xu_ly`   : chỉ lấy bài chưa hoàn thành (Status ∈ NEW, PROCESSING).
+    `nhieu_trang_thai` : set các trạng thái được phép (VD {"PROCESSING","SAN_SANG"}).
+                         Nếu truyền thì ưu tiên hơn `trang_thai`.
     """
     store = lay_store()
     danh_sach = store.lay_tat_ca("CONTENT POOL")
@@ -52,7 +55,10 @@ def lay_danh_sach_pool(trang_thai=None, key=None, nhan_vat=None, tim_kiem=None,
                 continue
         if chi_chua_xu_ly and st not in ("NEW", "PROCESSING"):
             continue
-        if trang_thai and trang_thai != "ALL" and st != trang_thai:
+        if nhieu_trang_thai:
+            if st not in nhieu_trang_thai:
+                continue
+        elif trang_thai and trang_thai != "ALL" and st != trang_thai:
             continue
         if key and key != "ALL" and k != key:
             continue
@@ -131,6 +137,37 @@ def lay_cac_phien_cao(store=None) -> list:
     for p, e in phien_map.items():
         ds.append({"phien": p, "trang": sorted(e["trang"]),
                    "so_bai": e["so_bai"], "so_chua_xu_ly": e["so_chua_xu_ly"]})
+    ds.sort(key=lambda x: x["phien"], reverse=True)
+    return ds
+
+
+def lay_cac_phien_chinh_bai(store=None) -> list:
+    """Gom phiên cào CHỈ gồm các bài đã chạy AI nhưng CHƯA hoàn thành (Status = PROCESSING).
+
+    Dùng cho bộ lọc phiên ở Tab 3 (Chỉnh bài). Mỗi phiên: {phien, so_bai}.
+    """
+    store = store or lay_store()
+    phien_map = {}
+    for d in store.lay_tat_ca("CONTENT POOL"):
+        st = str(d.get("Status") or "NEW").strip()
+        if st != "PROCESSING":
+            continue
+        cac_phien = d.get("Cac_phien_gap")
+        if cac_phien is None:
+            p = str(d.get("Phien_cao") or "").strip()
+            ds_phien = [p] if p else []
+        else:
+            ds_phien = cac_phien if isinstance(cac_phien, list) else [str(cac_phien)]
+        if not ds_phien:
+            continue
+        for p in ds_phien:
+            p = str(p).strip()
+            if not p:
+                continue
+            e = phien_map.setdefault(p, {"phien": p, "so_bai": 0})
+            e["so_bai"] += 1
+
+    ds = [{"phien": p, "so_bai": e["so_bai"]} for p, e in phien_map.items()]
     ds.sort(key=lambda x: x["phien"], reverse=True)
     return ds
 
@@ -471,6 +508,39 @@ def luu_chinh_sua_bai(content_id: str, du_lieu_sua: dict) -> dict:
                     print(f"[!] Lỗi cập nhật file gói: {e}")
 
     return {"success": True, "message": "Đã lưu chỉnh sửa thành công"}
+
+
+def hoan_thanh_hang_loat(danh_sach_id: list, ghi_chu: str = "Đã hoàn thành hàng loạt (Tab 3)") -> dict:
+    """Hoàn thành nhiều bài một lần: đặt Status = SAN_SANG, giữ caption AI đã sinh sẵn.
+
+    Trả về {success, so_thanh_cong, so_loi, loi:[{id, err}]}.
+    """
+    store = lay_store()
+    so_thanh_cong = 0
+    loi = []
+    for cid in danh_sach_id:
+        cid = str(cid or "").strip()
+        if not cid:
+            loi.append({"id": cid, "err": "ID rỗng"})
+            continue
+        tim = store.tim_dong("CONTENT POOL", "Content ID", cid)
+        if not tim:
+            loi.append({"id": cid, "err": "Không tìm thấy bài"})
+            continue
+        idx, row = tim
+        st = str(row.get("Status") or "").strip()
+        if st == "HOAN_THANH":
+            loi.append({"id": cid, "err": "Đã hoàn thành (HOAN_THANH)"})
+            continue
+        # Giữ caption sẵn có; nếu trống mới dùng caption gốc làm nền
+        if not str(row.get("Caption mới") or "").strip():
+            row["Caption mới"] = str(row.get("Caption") or "").strip()
+        row["Status"] = "SAN_SANG"
+        if ghi_chu:
+            row["Ghi chú"] = ghi_chu
+        store.cap_nhat_dong("CONTENT POOL", idx, row)
+        so_thanh_cong += 1
+    return {"success": True, "so_thanh_cong": so_thanh_cong, "so_loi": len(loi), "loi": loi}
 
 
 def xu_ly_anh_hoan_thanh_mot_bai(content_id: str, format_type: str = "1:1") -> dict:
