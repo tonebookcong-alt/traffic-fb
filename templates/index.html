@@ -248,24 +248,6 @@
                   </button>
                 </div>
 
-                <hr class="my-3">
-                <div class="row g-2 align-items-center">
-                  <div class="col-auto">
-                    <label class="form-label small fw-bold mb-0">Luồng đầy đủ:</label>
-                  </div>
-                  <div class="col">
-                    <button id="btnCaLuong" class="btn btn-warning w-100" onclick="chayCaLuong()">
-                      <i class="fa-solid fa-bolt me-1"></i> ⚡ Chạy Cả Luồng (Cào → Viết lại → Chỉnh Ảnh → CSV)
-                    </button>
-                  </div>
-                  <div class="col-auto">
-                    <button class="btn btn-outline-success" onclick="xuatCsv()"
-                            title="Tạo file CSV phân loại các bài ĐÃ xử lý (WEB_POSTED/DONE) — không cần chạy lại luồng.">
-                      <i class="fa-solid fa-file-csv me-1"></i> Xuất CSV phân loại
-                    </button>
-                  </div>
-                </div>
-
                 <div id="csvDownloadBox" class="mt-2 d-none">
                   <div class="bg-success-subtle border rounded p-2 small">
                     <span class="fw-bold text-success"><i class="fa-solid fa-file-csv me-1"></i> Gói CSV phân loại đã sẵn sàng!</span>
@@ -679,12 +661,13 @@
             <div class="row g-3">
               <div class="col-md-4">
                 <label class="form-label small fw-bold" for="aiProvider">Nhà cung cấp</label>
-                <select id="aiProvider" class="form-select">
+                <select id="aiProvider" class="form-select" onchange="capNhatUngDungProvider()">
                   <option value="mock">mock — chạy thử không cần key</option>
                   <option value="deepseek">DeepSeek</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic (Claude)</option>
                   <option value="gemini">Google Gemini</option>
+                  <option value="custom">Custom (OpenAI-compatible)</option>
                 </select>
               </div>
               <div class="col-md-4">
@@ -697,8 +680,17 @@
               </div>
               <div class="col-md-4">
                 <label class="form-label small fw-bold" for="aiModel">Model</label>
-                <input type="text" id="aiModel" class="form-control" placeholder="vd: deepseek-chat, gpt-4o-mini, claude-sonnet-4-5, gemini-1.5-flash">
-                <div class="small text-muted mt-1">Để trống = dùng model mặc định của provider.</div>
+                <div class="input-group">
+                  <input type="text" id="aiModel" class="form-control" list="aiModelList" placeholder="vd: deepseek-v4-flash, gpt-5.2 ...">
+                  <button class="btn btn-outline-primary" type="button" onclick="tuaThemModel()" title="Tự thêm toàn bộ model của API key"><i class="fa-solid fa-download me-1"></i> Tự thêm model</button>
+                </div>
+                <datalist id="aiModelList"></datalist>
+                <div class="small text-muted mt-1">Bấm <b>Tự thêm model</b> để nạp toàn bộ model của API key (chỉ cho Custom). Hoặc nhập tay.</div>
+              </div>
+              <div class="col-md-4" id="baseUrlGroup" style="display:none;">
+                <label class="form-label small fw-bold" for="aiBaseUrl">Base URL (chỉ dùng cho Custom)</label>
+                <input type="text" id="aiBaseUrl" class="form-control" placeholder="https://openrouter.ai/api/v1  hoặc  https://api.groq.com/openai/v1">
+                <div class="small text-muted mt-1">Endpoint gốc (OpenAI-compatible). Ví dụ: <code>https://openrouter.ai/api/v1</code>.</div>
               </div>
             </div>
             <div class="d-flex gap-2 mt-3">
@@ -1753,6 +1745,53 @@
     }
 
     // ===== TAB 6: CẤU HÌNH AI =====
+    function capNhatUngDungProvider() {
+      const p = document.getElementById('aiProvider').value;
+      const grp = document.getElementById('baseUrlGroup');
+      const base = document.getElementById('aiBaseUrl');
+      if(grp) grp.style.display = (p === 'custom') ? '' : 'none';
+      // Khi không phải custom, base_url không cần thiết
+    }
+
+    function tuaThemModel() {
+      const provider = document.getElementById('aiProvider').value;
+      const baseUrl = document.getElementById('aiBaseUrl').value.trim();
+      const apiKey = document.getElementById('aiApiKey').value.trim();
+      const box = document.getElementById('aiKetQua');
+
+      if(provider !== 'custom') return showToast('❌ Tự thêm model chỉ dùng cho Custom provider.');
+      if(!baseUrl) return showToast('❌ Vui lòng nhập Base URL trước.');
+      if(!apiKey) return showToast('❌ Vui lòng nhập API Key trước.');
+
+      box.innerHTML = '<div class="alert alert-info py-2 mb-0 small">⏳ Đang tải danh sách model...</div>';
+      fetch('/api/ai/models', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({provider: provider, base_url: baseUrl, api_key: apiKey})
+      })
+        .then(r => r.json())
+        .then(d => {
+          if(!d.ok) {
+            box.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">❌ ' + (d.loi || 'Lỗi tải model') + '</div>';
+            return;
+          }
+          const models = d.models || [];
+          const dl = document.getElementById('aiModelList');
+          dl.innerHTML = '';
+          models.forEach(m => {
+            const o = document.createElement('option');
+            o.value = m;
+            o.label = m;
+            dl.appendChild(o);
+          });
+          box.innerHTML = '<div class="alert alert-success py-2 mb-0 small">✅ Đã tải ' + models.length + ' model. Gõ vào ô Model để chọn từ danh sách gợi ý.</div>';
+          // Tự chọn model đầu tiên nếu ô Model đang trống
+          const modelInput = document.getElementById('aiModel');
+          if(!modelInput.value.trim() && models.length) modelInput.value = models[0];
+        })
+        .catch(e => box.innerHTML = '<div class="alert alert-danger py-2 mb-0 small">❌ Lỗi mạng: ' + e + '</div>');
+    }
+
     function taiCauHinhAI() {
       fetch('/api/cau_hinh')
         .then(r => r.json())
@@ -1761,6 +1800,8 @@
           document.getElementById('aiProvider').value = d.provider || 'mock';
           document.getElementById('aiApiKey').value = d.api_key || '';
           document.getElementById('aiModel').value = d.model || '';
+          document.getElementById('aiBaseUrl').value = d.base_url || '';
+          capNhatUngDungProvider();
           document.getElementById('aiKetQua').innerHTML = '';
         })
         .catch(() => showToast('❌ Không tải được cấu hình AI'));
@@ -1770,6 +1811,7 @@
       const provider = document.getElementById('aiProvider').value;
       const apiKey = document.getElementById('aiApiKey').value.trim();
       const model = document.getElementById('aiModel').value.trim();
+      const baseUrl = document.getElementById('aiBaseUrl').value.trim();
       const btn = document.getElementById('btnKiemTraAI');
       const box = document.getElementById('aiKetQua');
       box.innerHTML = '<div class="alert alert-info py-2 mb-0 small">⏳ Đang kiểm tra kết nối...</div>';
@@ -1777,7 +1819,7 @@
       fetch('/api/kiem_tra_ai', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({provider: provider, api_key: apiKey, model: model})
+        body: JSON.stringify({provider: provider, api_key: apiKey, model: model, base_url: baseUrl})
       })
         .then(r => r.json())
         .then(d => {
@@ -1792,10 +1834,11 @@
       const provider = document.getElementById('aiProvider').value;
       const apiKey = document.getElementById('aiApiKey').value.trim();
       const model = document.getElementById('aiModel').value.trim();
+      const baseUrl = document.getElementById('aiBaseUrl').value.trim();
       fetch('/api/luu_cau_hinh', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({provider: provider, api_key: apiKey, model: model})
+        body: JSON.stringify({provider: provider, api_key: apiKey, model: model, base_url: baseUrl})
       })
         .then(r => r.json())
         .then(d => {

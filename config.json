@@ -1,9 +1,10 @@
 {
   "cookies_file": "cookies.txt",
   "ai": {
-    "provider": "deepseek",
-    "api_key": "sk-0f5585afae8046b2b75da1b08f8a98c2",
-    "model": "deepseek-chat"
+    "provider": "custom",
+    "api_key": "sk-i08h3934uzlwu64ot90v56j4hs2jcygz",
+    "model": "qwen3.8-flash",
+    "base_url": "https://api.b.ai/v1"
   },
   "sheets": {
     "credentials_file": "google_sheets_creds.json",

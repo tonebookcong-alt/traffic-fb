@@ -853,13 +853,14 @@ def api_mo_thu_muc():
 # ===================================================================
 @app.route("/api/cau_hinh", methods=["GET"])
 def api_lay_cau_hinh():
-    """Trả về cấu hình AI hiện tại (provider, api_key, model)."""
+    """Trả về cấu hình AI hiện tại (provider, api_key, model, base_url)."""
     cfg = load_config()
     return jsonify({
         "ok": True,
         "provider": cfg["ai"]["provider"],
         "api_key": cfg["ai"]["api_key"],
         "model": cfg["ai"]["model"],
+        "base_url": cfg["ai"].get("base_url") or "",
     })
 
 
@@ -871,6 +872,7 @@ def api_luu_cau_hinh():
     cfg["ai"]["provider"] = (data.get("provider") or cfg["ai"]["provider"]).strip()
     cfg["ai"]["api_key"] = (data.get("api_key") or cfg["ai"]["api_key"]).strip()
     cfg["ai"]["model"] = (data.get("model") or cfg["ai"]["model"]).strip()
+    cfg["ai"]["base_url"] = (data.get("base_url") or cfg["ai"].get("base_url") or "").strip()
     try:
         ghi_config(cfg)
         return jsonify({"ok": True, "message": "Đã lưu cấu hình AI thành công."})
@@ -885,10 +887,65 @@ def api_kiem_tra_ai():
     provider = data.get("provider") or ""
     api_key = data.get("api_key") or ""
     model = data.get("model") or ""
-    ket_qua = kiem_tra_api_key(provider, api_key, model)
+    base_url = data.get("base_url") or ""
+    ket_qua = kiem_tra_api_key(provider, api_key, model, base_url)
     if ket_qua["ok"]:
         return jsonify({"ok": True, "message": ket_qua["message"]})
     return jsonify({"ok": False, "loi": ket_qua["message"]}), 400
+
+
+@app.route("/api/ai/models", methods=["POST"])
+def api_lay_danh_sach_model():
+    """Lấy danh sách model của custom/OpenAI-compatible provider (endpoint /v1/models)."""
+    data = request.json or {}
+    base_url = data.get("base_url") or ""
+    api_key = data.get("api_key") or ""
+    provider = data.get("provider") or ""
+
+    if provider != "custom":
+        return jsonify({"ok": False, "loi": "Chức năng tự thêm model chỉ dùng cho Custom provider."}), 400
+    if not base_url:
+        return jsonify({"ok": False, "loi": "Chưa nhập Base URL."}), 400
+
+    import requests
+    url = base_url.strip().rstrip("/")
+    neu_duoi = url.rsplit("/", 1)[-1]
+    # Nếu người dùng nhập tới .../chat/completions thì bỏ phần đó để dùng .../models
+    if neu_duoi in ("chat/completions", "completions"):
+        url = url.rsplit("/", 1)[0]
+    url = url + "/models"
+
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=60)
+    except Exception as e:
+        return jsonify({"ok": False, "loi": f"Lỗi kết nối: {str(e)[:180]}"}), 400
+
+    if resp.status_code >= 400:
+        try:
+            j = resp.json()
+            msg = j.get("error", {}).get("message") if isinstance(j.get("error"), dict) else str(j.get("error", ""))
+            msg = msg or resp.text[:200]
+        except Exception:
+            msg = resp.text[:200]
+        return jsonify({"ok": False, "loi": f"Lỗi lấy model (HTTP {resp.status_code}): {msg[:200]}"}), 400
+
+    try:
+        data_json = resp.json()
+        danh_sach = data_json.get("data", [])
+    except Exception:
+        return jsonify({"ok": False, "loi": "Phản hồi không đúng định dạng (không có danh sách model)."}), 400
+
+    models = [str(m.get("id") or "").strip() for m in danh_sach if m.get("id")]
+    models = [m for m in models if m]
+    if not models:
+        return jsonify({"ok": False, "loi": "Không tìm thấy model nào trong phản hồi."}), 400
+
+    models = sorted(set(models))
+    return jsonify({"ok": True, "models": models})
 
 
 # Phục vụ file media ảnh local

@@ -23,6 +23,7 @@ MAC_DINH = {
         "provider": "mock",
         "api_key": "",
         "model": "",
+        "base_url": "",
     },
     "sheets": {
         "credentials_file": "google_sheets_creds.json",
