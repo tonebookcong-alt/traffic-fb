@@ -8,3 +8,4 @@ playwright
 gspread
 google-auth
 pillow
+xlsxwriter

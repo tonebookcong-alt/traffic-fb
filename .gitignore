@@ -26,3 +26,6 @@ google_sheets_creds.json
 # Generated output & IDE directories
 du_lieu_fb/
 .claude/
+
+du_lieu_reel/
+mau_so_sanh_*.png

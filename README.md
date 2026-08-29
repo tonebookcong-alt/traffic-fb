@@ -5,7 +5,7 @@ Công cụ tự động cào bài viết (văn bản + ảnh) từ nhiều Faceb
 ---
 
 # HƯỚNG DẪN SỬ DỤNG
-Cách nhanh nhất ném link cho antigravity hoặc các AI agent khác để nó cài full.
+Cách nhanh nhất ném link cho antigravity hoặc các AI agent khác để nó cài full cho bạn.
 ## Bước 1. Kiểm tra môi trường Python
 - Mở **Command Prompt** hoặc **PowerShell**
 - Chạy lệnh: `python --version`

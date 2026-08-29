@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Cào dữ liệu Facebook Page (text + ảnh) bằng thư viện facebook-scraper.
@@ -262,15 +262,14 @@ def ghi_json(posts: list, ten_file: str):
 
 
 def ghi_excel(ket_qua: dict, ten_file: str) -> str:
-    """Xuất TOÀN BỘ dữ liệu ra 1 file Excel .xlsx.
+    """Xuất TOÀN BỘ dữ liệu ra 1 file Excel .xlsx (engine xlsxwriter).
 
     - Sheet 'Tổng quan': thống kê từng trang + Top 10 bài tiềm năng nhất toàn bộ
     - 1 sheet cho mỗi trang: từng bài kèm cảm xúc, bình luận, chia sẻ,
       điểm tiềm năng (tô màu: CAO xanh lá / TRUNG_BINH vàng / THAP xám),
       đường dẫn ảnh đã tải, link bài bấm được.
     """
-    from openpyxl import Workbook
-    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    import xlsxwriter
 
     cot = [
         ("STT", 5), ("post_id", 16), ("Thời gian", 20), ("Nội dung bài viết", 65),
@@ -278,154 +277,159 @@ def ghi_excel(ket_qua: dict, ten_file: str) -> str:
         ("Điểm tiềm năng", 13), ("Mức tiềm năng", 14),
         ("Ảnh đã tải (đường dẫn)", 50), ("Link bài viết", 16),
     ]
-    header_fill = PatternFill("solid", fgColor="1F4E78")
-    header_font = Font(bold=True, color="FFFFFF")
-    border = Border(*[Side(style="thin", color="D9D9D9")] * 4)
-    tier_fill = {
-        "CAO": PatternFill("solid", fgColor="C6EFCE"),
-        "TRUNG_BINH": PatternFill("solid", fgColor="FFEB9C"),
-        "THAP": PatternFill("solid", fgColor="F2F2F2"),
-    }
-    tier_font = {
-        "CAO": Font(color="006100", bold=True),
-        "TRUNG_BINH": Font(color="9C6500", bold=True),
-        "THAP": Font(color="808080"),
-    }
-
-    def ke_dong_dau(ws, headers):
-        """Tô header, kẻ khung, lọc tự động, đóng băng dòng đầu."""
-        for c, (tieu_de, _) in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=c, value=tieu_de)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-        ws.freeze_panes = "A2"
-        ws.auto_filter.ref = f"A1:{ws.cell(1, len(headers)).coordinate}"
-        for c, (_, rong) in enumerate(headers, 1):
-            ws.column_dimensions[chr(64 + c)].width = rong
-
-    def ghi_mot_bai(ws, r, post):
-        ws.cell(r, 1, r - 1)
-        ws.cell(r, 2, post.get("post_id"))
-        ws.cell(r, 3, post.get("time"))
-        # Hashtag được ghi NGAY TRONG ô nội dung, xuống dòng phía dưới bài viết
-        text = post.get("text") or ""
-        hashtags = " ".join(post.get("hashtags") or [])
-        noi_dung = text + ("\n\n" + hashtags if hashtags else "")
-        ws.cell(r, 4, noi_dung).alignment = Alignment(
-            wrap_text=True, vertical="top")
-        # Chiều cao dòng theo lượng chữ — nếu không đặt, Excel chỉ hiện 1 dòng
-        # đầu của mỗi bài (text vẫn đầy đủ trong ô nhưng bị ẩn).
-        # Cột rộng 65 -> ~60 ký tự/dòng. Excel giới hạn dòng 409.5pt.
-        so_dong = max(1, -(-len(noi_dung) // 60))
-        ws.row_dimensions[r].height = min(so_dong * 15 + 4, 409.5)
-        ws.cell(r, 5, post.get("likes") or 0)
-        ws.cell(r, 6, post.get("comments") or 0)
-        ws.cell(r, 7, post.get("shares") or 0)
-        ws.cell(r, 8, post.get("diem_tiem_nang") or 0)
-        muc = post.get("muc_tiem_nang") or "—"
-        c = ws.cell(r, 9, muc)
-        if muc in tier_fill:
-            c.fill = tier_fill[muc]
-            c.font = tier_font[muc]
-        # Đường dẫn ẢNH ĐẦY ĐỦ trên máy
-        # (VD: C:\traffic fb\du_lieu_images\du_lieu_2026-08-24_09-27-08_images\post_id_1.jpg)
-        cac_anh = [os.path.abspath(x) for x in (post.get("images_da_tai") or [])]
-        ws.cell(r, 10, "\n".join(cac_anh)).alignment = Alignment(
-            wrap_text=True, vertical="top")
-        if cac_anh:
-            # dòng cao thêm nếu nhiều ảnh
-            ws.row_dimensions[r].height = max(ws.row_dimensions[r].height,
-                                              min(len(cac_anh) * 15 + 4, 409.5))
-        # Link bài viết: dán URL THẬT vào ô (bấm vẫn mở được Facebook)
-        url = post.get("post_url")
-        if url:
-            c = ws.cell(r, 11, url)
-            c.hyperlink = url
-            c.font = Font(color="0563C1", underline="single")
-        else:
-            ws.cell(r, 11, "—")
-        for c in range(1, len(cot) + 1):
-            ws.cell(r, c).border = border
-
-    wb = Workbook()
-
-    # ================= Sheet Tổng quan =================
-    ws = wb.active
-    ws.title = "Tổng quan"
-    ws["A1"] = "TỔNG QUAN CÁC TRANG ĐÃ CÀO"
-    ws["A1"].font = Font(bold=True, size=14)
-
-    ws["A3"] = "Trang"; ws["B3"] = "Số bài"; ws["C3"] = "Tổng cảm xúc"
-    ws["D3"] = "Tổng bình luận"; ws["E3"] = "Tổng chia sẻ"; ws["F3"] = "Tổng điểm"; ws["G3"] = "Bài hay nhất"
-    for c in range(1, 8):
-        ws.cell(3, c).fill = header_fill
-        ws.cell(3, c).font = header_font
-    ws.column_dimensions["A"].width = 30
-    for col in "BCDEF":
-        ws.column_dimensions[col].width = 15
-    ws.column_dimensions["G"].width = 45
-
-    r = 4
-    tat_ca = []
-    for page, posts in ket_qua.items():
-        tong_diem = sum((p.get("diem_tiem_nang") or 0) for p in posts)
-        bai_hay = posts[0] if posts and posts[0].get("post_url") else None
-        ws.cell(r, 1, page)
-        ws.cell(r, 2, len(posts))
-        ws.cell(r, 3, sum(p.get("likes") or 0 for p in posts))
-        ws.cell(r, 4, sum(p.get("comments") or 0 for p in posts))
-        ws.cell(r, 5, sum(p.get("shares") or 0 for p in posts))
-        ws.cell(r, 6, tong_diem)
-        if bai_hay:
-            c = ws.cell(r, 7, (bai_hay.get("text") or "")[:60] or bai_hay["post_id"])
-            c.hyperlink = bai_hay["post_url"]
-            c.font = Font(color="0563C1", underline="single")
-        tat_ca.extend((p | {"_trang": page}) for p in posts)
-        r += 1
-
-    r += 1
-    ws.cell(r, 1, "→ Cảm xúc / bình luận / chia sẻ CỦA TỪNG BÀI: mở sheet riêng của mỗi trang "
-                  "(tab phía dưới, đặt tên theo trang)").font = Font(italic=True, color="64748B")
-    r += 1
-    ws.cell(r, 1, "TOP 10 BÀI TIỀM NĂNG NHẤT TOÀN BỘ").font = Font(bold=True, size=13)
-    r += 1
-    ws.cell(r, 1, "STT"); ws.cell(r, 2, "Trang"); ws.cell(r, 3, "post_id")
-    ws.cell(r, 4, "Nội dung"); ws.cell(r, 5, "Điểm"); ws.cell(r, 6, "Mức"); ws.cell(r, 7, "Link")
-    for c in range(1, 8):
-        ws.cell(r, c).fill = header_fill
-        ws.cell(r, c).font = header_font
-    r += 1
-    for i, p in enumerate(sorted(tat_ca, key=lambda x: x.get("diem_tiem_nang") or 0, reverse=True)[:10], 1):
-        ws.cell(r, 1, i)
-        ws.cell(r, 2, p.get("_trang"))
-        ws.cell(r, 3, p.get("post_id"))
-        ws.cell(r, 4, (p.get("text") or "")[:100])
-        ws.cell(r, 5, p.get("diem_tiem_nang") or 0)
-        muc = p.get("muc_tiem_nang") or "—"
-        c = ws.cell(r, 6, muc)
-        if muc in tier_fill:
-            c.fill = tier_fill[muc]
-            c.font = tier_font[muc]
-        if p.get("post_url"):
-            c = ws.cell(r, 7, "Mở bài viết")
-            c.hyperlink = p["post_url"]
-            c.font = Font(color="0563C1", underline="single")
-        r += 1
-
-    # ================= Sheet từng trang =================
-    for page, posts in ket_qua.items():
-        ten_sheet = re.sub(r'[\\/*?:\[\]]', "_", page)[:31] or "trang"
-        ws = wb.create_sheet(title=ten_sheet)
-        ke_dong_dau(ws, cot)
-        for i, post in enumerate(posts, 2):
-            ghi_mot_bai(ws, i, post)
 
     xlsx_path = f"{ten_file}.xlsx"
     thumuc = os.path.dirname(xlsx_path)
     if thumuc:
         os.makedirs(thumuc, exist_ok=True)
-    wb.save(xlsx_path)
+
+    wb = xlsxwriter.Workbook(xlsx_path)
+
+    # ---------- Các định dạng (format) ----------
+    header_format = wb.add_format({
+        "bold": True, "font_color": "#FFFFFF", "bg_color": "#1F4E78",
+        "align": "center", "valign": "vcenter",
+        "border": 1, "border_color": "#D9D9D9",
+    })
+    text_format = wb.add_format({
+        "valign": "top", "border": 1, "border_color": "#D9D9D9",
+    })
+    num_format = wb.add_format({
+        "valign": "top", "border": 1, "border_color": "#D9D9D9",
+    })
+    wrap_format = wb.add_format({
+        "text_wrap": True, "valign": "top", "border": 1, "border_color": "#D9D9D9",
+    })
+    link_format = wb.add_format({
+        "font_color": "#0563C1", "underline": 1,
+        "valign": "top", "border": 1, "border_color": "#D9D9D9",
+    })
+    title_format = wb.add_format({"bold": True, "font_size": 14})
+    bold_13 = wb.add_format({"bold": True, "font_size": 13})
+    italic_gray = wb.add_format({"italic": True, "font_color": "#64748B"})
+    tier_format = {
+        "CAO": wb.add_format({"bg_color": "#C6EFCE", "font_color": "#006100",
+                              "bold": True, "valign": "top",
+                              "border": 1, "border_color": "#D9D9D9"}),
+        "TRUNG_BINH": wb.add_format({"bg_color": "#FFEB9C", "font_color": "#9C6500",
+                                     "bold": True, "valign": "top",
+                                     "border": 1, "border_color": "#D9D9D9"}),
+        "THAP": wb.add_format({"bg_color": "#F2F2F2", "font_color": "#808080",
+                               "valign": "top", "border": 1, "border_color": "#D9D9D9"}),
+    }
+
+    def ke_dong_dau(ws, headers):
+        """Tô header, kẻ khung, lọc tự động, đóng băng dòng đầu."""
+        for c, (tieu_de, _) in enumerate(headers):
+            ws.write(0, c, tieu_de, header_format)
+        ws.freeze_panes(1, 0)
+        ws.autofilter(0, 0, 0, len(headers) - 1)
+        for c, (_, rong) in enumerate(headers):
+            ws.set_column(c, c, rong)
+
+    def ghi_mot_bai(ws, r, post):
+        """Ghi 1 bài vào dòng r (0-based; dòng 0 là header)."""
+        ws.write_number(r, 0, r, num_format)  # STT
+        ws.write(r, 1, post.get("post_id"), text_format)
+        ws.write(r, 2, post.get("time"), text_format)
+        # Hashtag được ghi NGAY TRONG ô nội dung, xuống dòng phía dưới bài viết
+        text = post.get("text") or ""
+        hashtags = " ".join(post.get("hashtags") or [])
+        noi_dung = text + ("\n\n" + hashtags if hashtags else "")
+        ws.write(r, 3, noi_dung, wrap_format)
+        # Chiều cao dòng theo lượng chữ — nếu không đặt, Excel chỉ hiện 1 dòng
+        # đầu của mỗi bài (text vẫn đầy đủ trong ô nhưng bị ẩn).
+        # Cột rộng 65 -> ~60 ký tự/dòng. Excel giới hạn dòng 409.5pt.
+        so_dong = max(1, -(-len(noi_dung) // 60))
+        chieu_cao = min(so_dong * 15 + 4, 409.5)
+        ws.write_number(r, 4, post.get("likes") or 0, num_format)
+        ws.write_number(r, 5, post.get("comments") or 0, num_format)
+        ws.write_number(r, 6, post.get("shares") or 0, num_format)
+        ws.write_number(r, 7, post.get("diem_tiem_nang") or 0, num_format)
+        muc = post.get("muc_tiem_nang") or "—"
+        if muc in tier_format:
+            ws.write(r, 8, muc, tier_format[muc])
+        else:
+            ws.write(r, 8, muc, text_format)
+        # Đường dẫn ẢNH ĐẦY ĐỦ trên máy
+        # (VD: C:\traffic fb\du_lieu_images\du_lieu_2026-08-24_09-27-08_images\post_id_1.jpg)
+        cac_anh = [os.path.abspath(x) for x in (post.get("images_da_tai") or [])]
+        ws.write(r, 9, "\n".join(cac_anh), wrap_format)
+        if cac_anh:
+            # dòng cao thêm nếu nhiều ảnh
+            chieu_cao = max(chieu_cao, min(len(cac_anh) * 15 + 4, 409.5))
+        # Link bài viết: dán URL THẬT vào ô (bấm vẫn mở được Facebook)
+        url = post.get("post_url")
+        if url:
+            ws.write_url(r, 10, url, link_format, url)
+        else:
+            ws.write(r, 10, "—", text_format)
+        ws.set_row(r, chieu_cao)
+
+    # ================= Sheet Tổng quan =================
+    ws = wb.add_worksheet("Tổng quan")
+    ws.write(0, 0, "TỔNG QUAN CÁC TRANG ĐÃ CÀO", title_format)
+
+    tieu_de_tong_quan = ["Trang", "Số bài", "Tổng cảm xúc", "Tổng bình luận",
+                         "Tổng chia sẻ", "Tổng điểm", "Bài hay nhất"]
+    for c, td in enumerate(tieu_de_tong_quan):
+        ws.write(2, c, td, header_format)
+    ws.set_column(0, 0, 30)
+    for col in range(1, 6):
+        ws.set_column(col, col, 15)
+    ws.set_column(6, 6, 45)
+
+    r = 3
+    tat_ca = []
+    for page, posts in ket_qua.items():
+        tong_diem = sum((p.get("diem_tiem_nang") or 0) for p in posts)
+        bai_hay = posts[0] if posts and posts[0].get("post_url") else None
+        ws.write(r, 0, page, text_format)
+        ws.write_number(r, 1, len(posts), num_format)
+        ws.write_number(r, 2, sum(p.get("likes") or 0 for p in posts), num_format)
+        ws.write_number(r, 3, sum(p.get("comments") or 0 for p in posts), num_format)
+        ws.write_number(r, 4, sum(p.get("shares") or 0 for p in posts), num_format)
+        ws.write_number(r, 5, tong_diem, num_format)
+        if bai_hay:
+            ws.write_url(r, 6, bai_hay["post_url"], link_format,
+                         (bai_hay.get("text") or "")[:60] or bai_hay["post_id"])
+        tat_ca.extend((p | {"_trang": page}) for p in posts)
+        r += 1
+
+    r += 1
+    ws.write(r, 0, "→ Cảm xúc / bình luận / chia sẻ CỦA TỪNG BÀI: mở sheet riêng của mỗi trang "
+                   "(tab phía dưới, đặt tên theo trang)", italic_gray)
+    r += 1
+    ws.write(r, 0, "TOP 10 BÀI TIỀM NĂNG NHẤT TOÀN BỘ", bold_13)
+    r += 1
+    tieu_de_top = ["STT", "Trang", "post_id", "Nội dung", "Điểm", "Mức", "Link"]
+    for c, td in enumerate(tieu_de_top):
+        ws.write(r, c, td, header_format)
+    r += 1
+    for i, p in enumerate(sorted(tat_ca, key=lambda x: x.get("diem_tiem_nang") or 0, reverse=True)[:10], 1):
+        ws.write_number(r, 0, i, num_format)
+        ws.write(r, 1, p.get("_trang"), text_format)
+        ws.write(r, 2, p.get("post_id"), text_format)
+        ws.write(r, 3, (p.get("text") or "")[:100], text_format)
+        ws.write_number(r, 4, p.get("diem_tiem_nang") or 0, num_format)
+        muc = p.get("muc_tiem_nang") or "—"
+        if muc in tier_format:
+            ws.write(r, 5, muc, tier_format[muc])
+        else:
+            ws.write(r, 5, muc, text_format)
+        if p.get("post_url"):
+            ws.write_url(r, 6, p["post_url"], link_format, "Mở bài viết")
+        r += 1
+
+    # ================= Sheet từng trang =================
+    for page, posts in ket_qua.items():
+        ten_sheet = re.sub(r'[\\/*?:\[\]]', "_", page)[:31] or "trang"
+        ws = wb.add_worksheet(ten_sheet)
+        ke_dong_dau(ws, cot)
+        for i, post in enumerate(posts, 1):  # dòng 1 = dòng dữ liệu đầu (0-based)
+            ghi_mot_bai(ws, i, post)
+
+    wb.close()
     return xlsx_path
 
 

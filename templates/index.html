@@ -565,6 +565,11 @@
                 <option value="16:9">16:9 Ngang</option>
               </select>
               <button class="btn btn-sm btn-primary" onclick="xuLyAnhHangLoat()"><i class="fa-solid fa-crop me-1"></i> Xử Lí Ảnh</button>
+              <button class="btn btn-sm btn-success" onclick="taoReelHangLoat()"><i class="fa-solid fa-clapperboard me-1"></i> Tạo Reel</button>
+              <div class="form-check form-check-inline ms-1 mb-0">
+                <input class="form-check-input" type="checkbox" id="chkNhacNgauNhien" checked>
+                <label class="form-check-label small" for="chkNhacNgauNhien">🎵 Chọn nhạc ngẫu nhiên</label>
+              </div>
               <button class="btn btn-sm btn-outline-secondary" onclick="taiBaiSanSang()"><i class="fa-solid fa-rotate-right me-1"></i> Làm mới</button>
             </div>
           </div>
@@ -1351,6 +1356,41 @@
               clearInterval(timer);
               document.getElementById('tab4ProgressBox').classList.add('d-none');
               showToast('🎉 Đã cắt ảnh xong ' + s.tong_so + ' bài! Các bài đã chuyển sang Tab 5.');
+              taiBaiSanSang();
+            }
+          });
+        }, 1000);
+      });
+    }
+
+    function taoReelHangLoat() {
+      const ids = Array.from(document.querySelectorAll('.tab4-checkbox:checked')).map(cb => cb.value);
+      if(ids.length === 0) return showToast('Vui lòng tích ít nhất 1 bài để tạo reel!');
+      const fmt = document.getElementById('tab4FormatType').value;
+      const coNhac = document.getElementById('chkNhacNgauNhien').checked;
+
+      fetch('/api/xu_ly_reel', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ids: ids, format_type: fmt, co_nhac: coNhac})
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return showToast('❌ ' + d.loi);
+        document.getElementById('tab4ProgressBox').classList.remove('d-none');
+        document.getElementById('tab4ProgressText').innerText = '0 / ' + ids.length;
+        document.getElementById('tab4ProgressBar').style.width = '0%';
+        const timer = setInterval(() => {
+          fetch('/api/tien_do_reel').then(r => r.json()).then(s => {
+            document.getElementById('tab4ProgressText').innerText = s.da_xong + ' / ' + s.tong_so;
+            document.getElementById('tab4ProgressBar').style.width = s.tong_so ? Math.round(s.da_xong * 100 / s.tong_so) + '%' : '0%';
+            if(s.loi && s.loi.length) {
+              document.getElementById('tab4ErrorBox').innerText = '⚠ ' + s.loi.map(l => l.id + ': ' + (l.err || '')).join('; ');
+            }
+            if(s.da_xong >= s.tong_so) {
+              clearInterval(timer);
+              document.getElementById('tab4ProgressBox').classList.add('d-none');
+              showToast('🎉 Đã tạo reel xong ' + s.tong_so + ' bài! Video lưu trong thư mục du_lieu_reel/');
               taiBaiSanSang();
             }
           });

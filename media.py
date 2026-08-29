@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Module MEDIA — Xử lý ảnh (Pillow) cho bài đăng Facebook.
 - Tải ảnh từ URL Facebook trong Content Pool
@@ -57,6 +57,11 @@ def xu_ly_anh(anh_goc_path: str, anh_dich_path: str, format_type: str = "1:1", c
         with Image.open(anh_goc_path) as im:
             im = im.convert("RGB")
             w, h = im.size
+            # Cắt bớt viền/khung sẵn có của ảnh nguồn trước khi thêm viền của mình
+            crop_vien = int(float(cfg.get("crop_vien") or 4))
+            if crop_vien > 0 and w > 2 * crop_vien and h > 2 * crop_vien:
+                im = im.crop((crop_vien, crop_vien, w - crop_vien, h - crop_vien))
+                w, h = im.size
             canh_dai = int(float(cfg.get("max_size") or 1080))
             if max(w, h) > canh_dai:
                 if w >= h:

@@ -32,6 +32,7 @@ import luong_b
 import dong_goi
 from viet_lai import viet_3_caption, viet_bai_bao
 from media import chuan_bi_media, xu_ly_anh
+import reel
 from ai_client import kiem_tra_api_key
 
 app = Flask(__name__)
@@ -76,6 +77,16 @@ BATCH_STATUS = {
 
 # ---------------- Trạng thái Cắt ảnh (Tab 4) ----------------
 ANH_STATUS = {
+    "dang_chay": False,
+    "tong_so": 0,
+    "da_xong": 0,
+    "dang_xu_ly": "",
+    "loi": [],
+    "hoan_thanh": False,
+}
+
+# ---------------- Trạng thái Tạo Reel (Tab 4) ----------------
+REEL_STATUS = {
     "dang_chay": False,
     "tong_so": 0,
     "da_xong": 0,
@@ -580,6 +591,64 @@ def api_tien_do_anh():
     return jsonify(ANH_STATUS)
 
 
+# ---------------- Tạo Reel (Tab 4) ----------------
+def _worker_reel(ids, format_type):
+    """Cắt ảnh như nút Xử Lí Ảnh rồi kéo dài thành video reel 10s (Tab 4)."""
+    global REEL_STATUS
+    REEL_STATUS["dang_chay"] = True
+    REEL_STATUS["tong_so"] = len(ids)
+    REEL_STATUS["da_xong"] = 0
+    REEL_STATUS["loi"] = []
+    REEL_STATUS["hoan_thanh"] = False
+    REEL_STATUS["dang_xu_ly"] = ""
+
+    for cid in ids:
+        REEL_STATUS["dang_xu_ly"] = cid
+        try:
+            # Bước 1: cắt ảnh như nút Xử Lí Ảnh (đặt Status = HOAN_THANH, chuyển Tab 5)
+            res = luong_b.xu_ly_anh_hoan_thanh_mot_bai(cid, format_type=format_type)
+            if not res.get("success"):
+                REEL_STATUS["loi"].append({"id": cid, "err": res.get("message")})
+            else:
+                # Bước 2: lấy ảnh đã xử lý rồi tạo reel 10s
+                anh_path = (res.get("data") or {}).get("anh_path")
+                r = reel.tao_reel(anh_path, co_nhac=True, ten_dau_ra=cid)
+                if not r.get("success"):
+                    REEL_STATUS["loi"].append({"id": cid, "err": r.get("error")})
+        except Exception as e:
+            REEL_STATUS["loi"].append({"id": cid, "err": str(e)})
+        REEL_STATUS["da_xong"] += 1
+
+    REEL_STATUS["dang_chay"] = False
+    REEL_STATUS["hoan_thanh"] = True
+    REEL_STATUS["dang_xu_ly"] = ""
+
+
+@app.route("/api/xu_ly_reel", methods=["POST"])
+def api_xu_ly_reel():
+    """Tab 4: nhận ids + format_type + co_nhac → chạy nền cắt ảnh + tạo reel."""
+    global REEL_STATUS
+    if REEL_STATUS["dang_chay"]:
+        return jsonify({"ok": False, "loi": "Đang có tiến trình tạo reel chạy ngầm"}), 400
+
+    data = request.json or {}
+    ids = data.get("ids") or []
+    format_type = data.get("format_type", "1:1")
+    if not ids:
+        return jsonify({"ok": False, "loi": "Danh sách ID rỗng"}), 400
+    if not data.get("co_nhac"):
+        return jsonify({"ok": False, "loi": "Vui lòng tích 'Chọn nhạc ngẫu nhiên' để tạo reel"}), 400
+
+    t = threading.Thread(target=_worker_reel, args=(ids, format_type), daemon=True)
+    t.start()
+    return jsonify({"ok": True, "tong_so": len(ids), "message": f"Bắt đầu tạo reel {len(ids)} bài"})
+
+
+@app.route("/api/tien_do_reel", methods=["GET"])
+def api_tien_do_reel():
+    return jsonify(REEL_STATUS)
+
+
 @app.route("/api/luu_chinh_sua", methods=["POST"])
 def api_luu_chinh_sua():
     data = request.json or {}
@@ -651,10 +720,9 @@ def api_xuat_excel_tab5():
     data = request.json or {}
     ids = data.get("ids") or None
     try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Font
+        import xlsxwriter
     except Exception as e:
-        return jsonify({"ok": False, "loi": f"Thiếu openpyxl: {e}"}), 500
+        return jsonify({"ok": False, "loi": f"Thiếu xlsxwriter: {e}"}), 500
 
     danh_sach = luong_b.lay_danh_sach_hoan_thanh()
     if ids:
@@ -668,15 +736,23 @@ def api_xuat_excel_tab5():
     xlsx_path = os.path.join(
         thu_muc, f"hoan_thanh_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx")
 
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Hoan Thanh"
-    ws.append(["STT"] + cot)
-    for cell in ws[1]:
-        cell.font = Font(bold=True)
+    wb = xlsxwriter.Workbook(xlsx_path)
+    ws = wb.add_worksheet("Hoan Thanh")
+    header_format = wb.add_format({"bold": True, "bg_color": "#1F4E78",
+                                   "font_color": "#FFFFFF", "align": "center",
+                                   "valign": "vcenter", "border": 1,
+                                   "border_color": "#D9D9D9"})
+    text_format = wb.add_format({"valign": "top", "text_wrap": True,
+                                 "border": 1, "border_color": "#D9D9D9"})
+
+    # Hàng tiêu đề
+    ws.write_row(0, 0, ["STT"] + cot, header_format)
+
+    # Dữ liệu
     for i, r in enumerate(danh_sach, start=1):
         goi = r.get("goi_fb") or {}
         row = [
+            i,
             r.get("Content ID") or "",
             r.get("KEY") or "",
             r.get("Nhân vật/chủ đề") or "",
@@ -691,16 +767,35 @@ def api_xuat_excel_tab5():
             goi.get("anh_path") or r.get("Media") or "",
             r.get("Status") or "",
         ]
-        ws.append([i] + list(row))
+        ws.write_row(i, 0, row, text_format)
 
-    for col in ws.columns:
-        width = min(max(len(str(c.value)) for c in col) + 4, 60)
-        ws.column_dimensions[col[0].column_letter].width = width
+    # Độ rộng cột theo nội dung (xlsxwriter ghi 1 chiều nên ước lượng trước)
+    cot_day_du = ["STT"] + cot
+    for c, tieu_de in enumerate(cot_day_du):
+        do_rong = max(len(tieu_de), 10)
+        for j, r in enumerate(danh_sach, start=1):
+            goi = r.get("goi_fb") or {}
+            gia_tri = [
+                str(j),
+                r.get("Content ID") or "",
+                r.get("KEY") or "",
+                r.get("Nhân vật/chủ đề") or "",
+                r.get("Source") or "",
+                r.get("Thời gian đăng") or "",
+                str(r.get("Cảm xúc") or 0),
+                str(r.get("Bình luận") or 0),
+                str(r.get("Chia sẻ") or 0),
+                dong_goi.lam_phang_caption(r.get("Caption") or ""),
+                dong_goi.lam_phang_caption(goi.get("caption_lua_chon") or r.get("Caption mới") or ""),
+                goi.get("article_url") or r.get("Article URL") or "",
+                goi.get("anh_path") or r.get("Media") or "",
+                r.get("Status") or "",
+            ]
+            do_rong = max(do_rong, min(len(gia_tri[c]) + 4, 60))
+        ws.set_column(c, c, do_rong)
 
-    wb.save(xlsx_path)
+    wb.close()
     return jsonify({"ok": True, "xlsx_path": xlsx_path, "so_dong": len(danh_sach), "file": xlsx_path})
-
-
 @app.route("/api/xac_nhan_da_dang", methods=["POST"])
 def api_xac_nhan_da_dang():
     cid = (request.json or {}).get("content_id")
