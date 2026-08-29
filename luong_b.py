@@ -18,6 +18,7 @@ from content_pool import chon_content, doi_status, _goc_thoi_gian
 from viet_lai import viet_3_caption, viet_bai_bao
 from media import chuan_bi_media, tao_thu_muc_ngay_gio
 from dang_web import dang_bai_web
+from reel import duong_dan_reel
 
 
 def lay_danh_sach_pool(trang_thai=None, key=None, nhan_vat=None, tim_kiem=None,
@@ -634,6 +635,7 @@ def _lay_danh_sach_theo_status(*statuses, phien=None) -> list:
             goi = map_goi.get(cid) or {}
             item["goi_fb"] = goi
             item["anh_path"] = goi.get("anh_path") or ""
+            item["reel_path"] = duong_dan_reel(cid)
             item["caption_lua_chon"] = goi.get("caption_lua_chon") or row.get("Caption mới") or ""
             item["article_url"] = goi.get("article_url") or row.get("Article URL") or ""
             item["folder"] = goi.get("folder") or ""

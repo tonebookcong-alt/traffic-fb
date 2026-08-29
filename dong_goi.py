@@ -63,6 +63,27 @@ def lam_phang_caption(text) -> str:
     return s
 
 
+def chon_caption_xuat(goi, row) -> str:
+    """Chọn đúng 1 caption để xuất (Excel/CSV).
+
+    - Ưu tiên `caption_lua_chon` (bản người dùng đã chọn) trong gói.
+    - Nếu chưa chọn → dùng `Caption mới`.
+    - Nếu chuỗi vẫn là khối nhiều version (dữ liệu cũ/trường hợp lỗi) →
+      tách và lấy VERSION 1 (mặc định).
+    Trả về caption đã ép về 1 dòng.
+    """
+    from viet_lai import tach_3_version
+
+    cap = (goi or {}).get("caption_lua_chon") or (row or {}).get("Caption mới") or ""
+    cap = str(cap).strip()
+    if not cap:
+        return ""
+    # Nếu còn lẫn nhiều version → tách lấy bản mặc định (VERSION 1)
+    if re.search(r"(?:VERSION|PHI[ÊE]N BẢN)\s*[123]\b", cap, re.IGNORECASE):
+        cap = tach_3_version(cap).get("version_1") or cap
+    return lam_phang_caption(cap)
+
+
 def tao_csv_full(store=None, danh_sach=None) -> dict:
     """Gom bài đã xử lý ra file CSV.
 
@@ -101,8 +122,7 @@ def tao_csv_full(store=None, danh_sach=None) -> dict:
             "Bình luận": row.get("Bình luận") or 0,
             "Chia sẻ": row.get("Chia sẻ") or 0,
             "Caption gốc": lam_phang_caption(row.get("Caption") or ""),
-            "Caption mới": lam_phang_caption(
-                goi.get("caption_lua_chon") or row.get("Caption mới") or ""),
+            "Caption mới": chon_caption_xuat(goi, row),
             "Link bài báo": goi.get("article_url") or row.get("Article URL") or "",
             "Đường dẫn ảnh": goi.get("anh_path") or row.get("Media") or "",
             "Status": st,

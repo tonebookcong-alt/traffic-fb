@@ -758,7 +758,10 @@ def api_xuat_excel_tab5():
     if not danh_sach:
         return jsonify({"ok": False, "loi": "Không có bài nào để xuất"}), 400
 
-    cot = dong_goi.COT_CSV
+    cot = list(dong_goi.COT_CSV)
+    # Chèn cột "Đường dẫn reel" ngay sau "Đường dẫn ảnh" (chỉ trong Excel Tab 5)
+    if "Đường dẫn ảnh" in cot:
+        cot.insert(cot.index("Đường dẫn ảnh") + 1, "Đường dẫn reel")
     thu_muc = os.path.join(DUONG_DAN, "du_lieu_exel")
     os.makedirs(thu_muc, exist_ok=True)
     xlsx_path = os.path.join(
@@ -790,9 +793,10 @@ def api_xuat_excel_tab5():
             r.get("Bình luận") or 0,
             r.get("Chia sẻ") or 0,
             dong_goi.lam_phang_caption(r.get("Caption") or ""),
-            dong_goi.lam_phang_caption(goi.get("caption_lua_chon") or r.get("Caption mới") or ""),
+            dong_goi.chon_caption_xuat(goi, r),
             goi.get("article_url") or r.get("Article URL") or "",
             goi.get("anh_path") or r.get("Media") or "",
+            r.get("reel_path") or "",
             r.get("Status") or "",
         ]
         ws.write_row(i, 0, row, text_format)
@@ -814,9 +818,10 @@ def api_xuat_excel_tab5():
                 str(r.get("Bình luận") or 0),
                 str(r.get("Chia sẻ") or 0),
                 dong_goi.lam_phang_caption(r.get("Caption") or ""),
-                dong_goi.lam_phang_caption(goi.get("caption_lua_chon") or r.get("Caption mới") or ""),
+                dong_goi.chon_caption_xuat(goi, r),
                 goi.get("article_url") or r.get("Article URL") or "",
                 goi.get("anh_path") or r.get("Media") or "",
+                r.get("reel_path") or "",
                 r.get("Status") or "",
             ]
             do_rong = max(do_rong, min(len(gia_tri[c]) + 4, 60))
@@ -948,16 +953,19 @@ def api_lay_danh_sach_model():
     return jsonify({"ok": True, "models": models})
 
 
-# Phục vụ file media ảnh local
+# Phục vụ file media ảnh local (bao gồm cả video reel)
 @app.route("/media/<path:filename>")
 def serve_media(filename):
-    # Cho phép tải ảnh từ du_lieu_fb hoặc du_lieu_images
+    # Cho phép tải ảnh từ du_lieu_fb hoặc du_lieu_images, và video reel từ du_lieu_reel
     duong_dan_fb = os.path.join(DUONG_DAN, "du_lieu_fb")
     duong_dan_img = os.path.join(DUONG_DAN, "du_lieu_images")
+    duong_dan_reel = os.path.join(DUONG_DAN, "du_lieu_reel")
     if os.path.exists(os.path.join(duong_dan_fb, filename)):
         return send_from_directory(duong_dan_fb, filename)
     if os.path.exists(os.path.join(duong_dan_img, filename)):
         return send_from_directory(duong_dan_img, filename)
+    if os.path.exists(os.path.join(duong_dan_reel, filename)):
+        return send_from_directory(duong_dan_reel, filename)
     return send_from_directory(DUONG_DAN, filename)
 
 

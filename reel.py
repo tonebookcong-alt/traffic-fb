@@ -36,6 +36,23 @@ def chon_nhac_ngau_nhien(root: str = None) -> str | None:
     return random.choice(duong)
 
 
+def duong_dan_reel(content_id: str) -> str:
+    """Đường dẫn đầy đủ tới file reel của bài `content_id` (nếu tồn tại).
+
+    Trả về "" nếu bài không có reel. File reel trong thư mục du_lieu_reel/
+    có thể được đặt tên theo 2 dạng:
+      - `<content_id>.mp4`          (khi tao_reel nhận ten_dau_ra=content_id)
+      - `reel_<content_id>.mp4`     (khi tao_reel dùng tên mặc định)
+    """
+    if not content_id:
+        return ""
+    for ten in (f"{content_id}.mp4", f"reel_{content_id}.mp4"):
+        duong = os.path.join(REEL_DIR, ten)
+        if os.path.isfile(duong):
+            return duong
+    return ""
+
+
 def tao_reel(anh_path: str, co_nhac: bool = True, ten_dau_ra: str = None,
              so_nhac: int = None) -> dict:
     """Tạo video reel 10s từ ảnh `anh_path`.

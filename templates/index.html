@@ -176,7 +176,7 @@
         </button>
       </li>
       <li class="nav-item">
-        <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2" type="button" onclick="taiKhoBai()">
+        <button class="nav-link" id="tab2-tab" data-bs-toggle="tab" data-bs-target="#tab2" type="button" onclick="taiKhoBai(true)">
           <i class="fa-solid fa-boxes-stacked"></i> 2. Kho Bài Viết (Content Pool) <span id="poolCountBadge" class="badge bg-primary ms-1">0</span>
         </button>
       </li>
@@ -724,7 +724,7 @@
     function chuyenTab(tabId) {
       const tabTrigger = new bootstrap.Tab(document.getElementById(tabId + '-tab'));
       tabTrigger.show();
-      if (tabId === 'tab2') taiKhoBai();
+      if (tabId === 'tab2') taiKhoBai(true);
       if (tabId === 'tab3') veDanhSachTab3();
       if (tabId === 'tab4') taiBaiSanSang();
       if (tabId === 'tab5') { taiBaiHoanThanh(); taiPhienHoanThanh(); }
@@ -874,7 +874,7 @@
           // Sau khi cào xong phiên mới, tự chuyển Kho Bài Viết sang phiên mới nhất
           const selPhien2 = document.getElementById('filterPhien');
           if (selPhien2) selPhien2.value = '';
-          taiKhoBai(true);
+          chuyenTab('tab2');
           showToast(`🎉 ${msg.thong_bao || ('Cào xong ' + msg.so_bai + ' bài viết!')}`);
         } else if (msg.loai === 'loi') {
           logBox.innerHTML += `\n[❌ LỖI] ${msg.noi_dung}`;
@@ -1295,7 +1295,7 @@
       updateWordCount();
 
       if (goi.anh_path) {
-        document.getElementById('detailProcessedImg').src = '/media/' + goi.anh_path.split('du_lieu_fb/')[1];
+        document.getElementById('detailProcessedImg').src = mediaUrl(goi.anh_path, data.Media);
         document.getElementById('detailImgPath').innerText = goi.anh_path;
       } else {
         document.getElementById('detailProcessedImg').src = data.Media || '';
@@ -1459,7 +1459,7 @@
       list.forEach(item => {
         const cid = item['Content ID'];
         const url = item.article_url || item['Article URL'] || '';
-        const anh = item.anh_path ? ('/media/' + item.anh_path.split('du_lieu_fb/')[1]) : (item.Media || '');
+        const anh = mediaUrl(item.anh_path, item.Media);
         const st = item.Status;
 
         html += `
@@ -1622,6 +1622,16 @@
       }
     }
 
+    function mediaUrl(anhPath, media) {
+      // Resolve đường dẫn ảnh local thành URL /media/... (hỗ trợ cả \ và /).
+      if (!anhPath) return media || '';
+      const after = anhPath.replace(/\\/g, '/').split('/du_lieu_fb/')[1] ||
+                    anhPath.replace(/\\/g, '/').split('/du_lieu_images/')[1];
+      if (after) return '/media/' + after;
+      // Fallback: dùng nguyên đường dẫn nếu không tách được theo thư mục chuẩn
+      return '/media/' + anhPath.replace(/\\/g, '/');
+    }
+
     function renderHoanThanhPosts(list) {
       const container = document.getElementById('hoanThanhList');
       if(!list || list.length === 0) {
@@ -1635,8 +1645,13 @@
         const cap = item.caption_lua_chon || item['Caption mới'] || '';
         const url = item.article_url || item['Article URL'] || '';
         const folder = item.folder || '';
-        const anh = item.anh_path ? ('/media/' + item.anh_path.split('du_lieu_fb/')[1]) : (item.Media || '');
+        const anh = mediaUrl(item.anh_path, item.Media);
+        const reelPath = item.reel_path || '';
         const st = item.Status;
+        const reelUrl = reelPath ? ('/media/' + reelPath.replace(/\\/g, '/').split('/du_lieu_reel/')[1]) : '';
+        const loaiTag = reelPath
+          ? '<span class="badge bg-danger me-1"><i class="fa-solid fa-clapperboard me-1"></i>REEL</span>'
+          : '<span class="badge bg-primary me-1"><i class="fa-solid fa-image me-1"></i>ẢNH</span>';
 
         html += `
           <div class="col-md-6">
@@ -1647,11 +1662,12 @@
                   <label class="form-check-label small fw-bold">Chọn</label>
                 </div>
                 <strong class="text-primary">${cid}</strong>
-                <span class="badge badge-status badge-${st}">${st}</span>
+                <span class="ms-auto d-flex align-items-center gap-1">${loaiTag}<span class="badge badge-status badge-${st}">${st}</span></span>
               </div>
               <div class="card-body">
                 <div class="d-flex gap-3 mb-3">
                   <img src="${anh}" class="rounded border" style="width: 110px; height: 110px; object-fit: cover;">
+                  ${reelUrl ? `<video src="${reelUrl}" controls muted class="rounded border" style="width: 110px; height: 110px; object-fit: cover;"></video>` : ''}
                   <div class="flex-grow-1">
                     <div class="small text-muted mb-1">KEY: <strong>${item.KEY || '-'}</strong> | NV: <strong>${item['Nhân vật/chủ đề'] || '-'}</strong></div>
                     <label class="form-label small fw-bold text-success mb-0"><i class="fa-solid fa-link me-1"></i> Link bài báo (Comment):</label>

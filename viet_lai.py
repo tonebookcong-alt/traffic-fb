@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Module VIET_LAI — Viết lại Caption (3 phiên bản) + Viết bài báo 1500-1700 từ.
 Tuân thủ tuyệt đối prompt và quy tắc nghiệp vụ trong yeucau.txt.
@@ -19,24 +19,37 @@ PROMPT_BAI_BAO_SYSTEM = _full_doc[_idx_bb:].strip()
 
 
 def tach_3_version(raw_text: str) -> dict:
-    """Tách chuỗi kết quả AI thành dict 3 version."""
+    """Tách chuỗi kết quả AI thành dict 3 version.
+
+    Nhận linh hoạt nhiều định dạng nhãn: `VERSION 1`, `**VERSION 1**`,
+    `VERSION 1:`, `Phiên bản 1 -`, ... (không phân biệt hoa/thường).
+    """
     ket_qua = {"version_1": "", "version_2": "", "version_3": ""}
     if not raw_text:
         return ket_qua
 
-    m1 = re.search(r'VERSION\s*1\s*[:\n]+(.*?)(?=VERSION\s*2|$)', raw_text, re.DOTALL | re.IGNORECASE)
-    m2 = re.search(r'VERSION\s*2\s*[:\n]+(.*?)(?=VERSION\s*3|$)', raw_text, re.DOTALL | re.IGNORECASE)
-    m3 = re.search(r'VERSION\s*3\s*[:\n]+(.*)', raw_text, re.DOTALL | re.IGNORECASE)
+    # Tìm vị trí các nhãn VERSION/PHIÊN BẢN <số> (bất kể trang trí xung quanh)
+    mau = re.compile(r'(?:VERSION|PHI[ÊE]N BẢN)\s*([123])\b', re.IGNORECASE)
+    vi_tri = [(m.start(), m.end(), int(m.group(1))) for m in mau.finditer(raw_text)]
 
-    if m1:
-        ket_qua["version_1"] = m1.group(1).strip()
-    if m2:
-        ket_qua["version_2"] = m2.group(1).strip()
-    if m3:
-        ket_qua["version_3"] = m3.group(1).strip()
-
-    if not ket_qua["version_1"]:
+    if not vi_tri:
         ket_qua["version_1"] = raw_text.strip()
+        return ket_qua
+
+    # Nội dung mỗi version = từ sau nhãn tới nhãn kế tiếp (theo thứ tự xuất hiện)
+    for idx, (start, end, so) in enumerate(vi_tri):
+        ket = vi_tri[idx + 1][0] if idx + 1 < len(vi_tri) else len(raw_text)
+        s = re.sub(r"^[\s*:;\-–—.]+", "", raw_text[end:ket])
+        # Bỏ trang trí đóng ở cuối (vd **\n\n) trước khi tới nhãn kế tiếp
+        s = re.sub(r"[\s*\n]+$", "", s).strip()
+        if 1 <= so <= 3:
+            ket_qua[f"version_{so}"] = s
+
+    # Đảm bảo luôn có version_1 (mặc định): nếu không tìm thấy nhãn 1, dùng phần đầu
+    if not ket_qua["version_1"]:
+        # Lấy phần trước nhãn đầu tiên nếu có, không thì toàn bộ chuỗi
+        bat_dau = raw_text[: vi_tri[0][0]].strip()
+        ket_qua["version_1"] = bat_dau or raw_text.strip()
     return ket_qua
 
 
