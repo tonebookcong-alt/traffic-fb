@@ -1,0 +1,31 @@
+{
+  "danh_sach_chu_de": [
+    "NFL",
+    "NBA",
+    "MLB",
+    "NASCAR",
+    "NHL",
+    "MLS",
+    "NCAA",
+    "UFC/Boxing",
+    "PGA Golf",
+    "Tennis",
+    "Kentucky Derby",
+    "Fake News"
+  ],
+  "map_key": {
+    "NFL": ["nfl", "super bowl", "tom brady", "patrick mahomes", "chiefs", "eagles", "cowboys", "packers", "49ers", "lions", "bills", "ravens", "nfl draft", "taylor swift", "kelce", "mahomes", "lombardi", "touchdown", "quarterback", "defensive lineman", "wide receiver", "nfc", "afc", "sunday night football", "monday night football"],
+    "NBA": ["nba", "lebron", "lakers", "celtics", "warriors", "curry", "kd", "durant", "giannis", "jokic", "doncic", "luka", "nba finals", "nba draft", "dunk", "buzzer beater", "mvp", "eastern conference", "western conference", "playoffs", "kyrie", "tatum", "embiid"],
+    "MLB": ["mlb", "world series", "yankees", "dodgers", "red sox", "mets", "cubs", "braves", "astros", "phillies", "ohtani", "soto", "judge", "trout", "home run", "grand slam", "no-hitter", "mlb draft", "spring training", "alcs", "nlcs"],
+    "NASCAR": ["nascar", "daytona 500", "kyle busch", "denny hamlin", "cup series", "talladega", "bristol", "charlotte motor speedway", "stock car", "checkered flag", "nascar playoffs", "dirt track", "superspeedway", "wreck", "drafting"],
+    "NHL": ["nhl", "stanley cup", "hockey", "oilers", "maple leafs", "rangers", "bruins", "avalanche", "golden knights", "penguins", "crosby", "mcdavid", "overtime", "shootout", "power play", "goalie"],
+    "MLS": ["mls", "soccer", "inter miami", "messi", "la galaxy", "seattle sounders", "atlanta united", "mls cup", "leagues cup", "designated player", "penalty kick"],
+    "NCAA": ["ncaa", "college football", "college basketball", "march madness", "final four", "clemson", "alabama football", "georgia bulldogs", "ohio state football", "michigan wolverines", "draft pick", "recruiting", "national championship"],
+    "UFC/Boxing": ["ufc", "mma", "boxing", "dana white", "mcgregor", "jones", "jake paul", "canelo", "heavyweight", "lightweight", "octagon", "knockout", "tko", "title fight", "belt"],
+    "PGA Golf": ["pga", "masters", "augusta", "tiger woods", "rory mcilroy", "scottie scheffler", "bryson", "golf", "birdie", "eagle", "hole-in-one", "major championship", "green jacket", "driving range"],
+    "Tennis": ["tennis", "us open", "wimbledon", "australian open", "french open", "serena", "djokovic", "alcaraz", "nadal", "federer", "grand slam", "match point", "serve", "ace", "break point"],
+    "Kentucky Derby": ["kentucky derby", "derby", "triple crown", "churchill downs", "preakness", "belmont", "horse racing", "thoroughbred", "jockey", "furlong"],
+    "Fake News": ["fake news", "hoax", "conspiracy", "clickbait", "misinformation", "disinformation", "viral hoax", "debunk", "fact check", "rumor"]
+  },
+  "ghi_chu": "KEY khớp (không phân biệt hoa/thường, khớp chứa từ) → dùng chủ đề đó. Không khớp → gọi AI phân loại."
+}

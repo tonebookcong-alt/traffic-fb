@@ -29,6 +29,11 @@ MAC_DINH = {
         "credentials_file": "google_sheets_creds.json",
         "spreadsheet_id": "",
     },
+    "website": {
+        "api_url": "",          # VD https://dailychronicle.danhngon.pro/api/posts
+        "api_token": "",        # API key dạng Bearer
+        "mode": "json",         # 'blogbio' (form + presigned upload) | 'json' (payload JSON)
+    },
     "luong_a": {
         "so_bai_moi_nguon": 10,
         "so_lan_cuon": 3,

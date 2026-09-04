@@ -2,13 +2,19 @@
   "cookies_file": "cookies.txt",
   "ai": {
     "provider": "custom",
-    "api_key": "sk-i08h3934uzlwu64ot90v56j4hs2jcygz",
-    "model": "qwen3.8-flash",
-    "base_url": "https://api.b.ai/v1"
+    "api_key": "sk-4x7f3e0abdqwoda85gkxtmlf9dti995v",
+    "model": "deepseek-v4-flash",
+    "base_url": "https://api.b.ai/v1",
+    "song_song": 3
   },
   "sheets": {
     "credentials_file": "google_sheets_creds.json",
     "spreadsheet_id": ""
+  },
+  "website": {
+    "api_url": "https://dailychronicle.danhngon.pro/api/posts",
+    "api_token": "n5yvcjdsb2xc07ccgcmi1pfk0s5q4v",
+    "mode": "blogbio"
   },
   "luong_a": {
     "so_bai_moi_nguon": 10,

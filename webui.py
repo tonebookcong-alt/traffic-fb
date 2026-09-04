@@ -16,10 +16,12 @@ import glob
 import json
 import os
 import queue
+import re
 import subprocess
 import threading
 import time
 import webbrowser
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from flask import (Flask, Response, jsonify, render_template, request,
@@ -74,6 +76,17 @@ BATCH_STATUS = {
     "loi": [],
     "hoan_thanh": False,
 }
+
+# Khóa bảo vệ BATCH_STATUS khi song song hóa + số bài xử lý đồng thời.
+_BATCH_LOCK = threading.Lock()
+
+
+def _so_luong_song_song() -> int:
+    """Số bài xử lý AI đồng thời (config ai.song_song, mặc định 3)."""
+    try:
+        return max(1, int(load_config().get("ai", {}).get("song_song", 3)))
+    except Exception:
+        return 3
 
 # ---------------- Trạng thái Cắt ảnh (Tab 4) ----------------
 ANH_STATUS = {
@@ -534,15 +547,31 @@ def _worker_batch(ids, format_type):
     BATCH_STATUS["loi"] = []
     BATCH_STATUS["hoan_thanh"] = False
 
-    for cid in ids:
-        BATCH_STATUS["dang_xu_ly"] = cid
+    callbacks = BATCH_STATUS["loi"]
+    khoa = _BATCH_LOCK
+    dang_chay = set()
+
+    def lam_mot(cid):
+        with khoa:
+            dang_chay.add(cid)
+            BATCH_STATUS["dang_xu_ly"] = ", ".join(sorted(dang_chay))
         try:
             res = luong_b.xuat_noi_dung_ai_bai(cid, format_type=format_type)
             if not res.get("success"):
-                BATCH_STATUS["loi"].append({"id": cid, "err": res.get("message")})
+                with khoa:
+                    callbacks.append({"id": cid, "err": res.get("message")})
         except Exception as e:
-            BATCH_STATUS["loi"].append({"id": cid, "err": str(e)})
-        BATCH_STATUS["da_xong"] += 1
+            with khoa:
+                callbacks.append({"id": cid, "err": str(e)})
+        finally:
+            with khoa:
+                dang_chay.discard(cid)
+                BATCH_STATUS["dang_xu_ly"] = ", ".join(sorted(dang_chay))
+                BATCH_STATUS["da_xong"] += 1
+
+    with ThreadPoolExecutor(max_workers=_so_luong_song_song()) as executor:
+        for _ in executor.map(lam_mot, ids):
+            pass
 
     BATCH_STATUS["dang_chay"] = False
     BATCH_STATUS["hoan_thanh"] = True
@@ -633,16 +662,23 @@ def _worker_reel(ids, format_type):
     for cid in ids:
         REEL_STATUS["dang_xu_ly"] = cid
         try:
-            # Bước 1: cắt ảnh như nút Xử Lí Ảnh (đặt Status = HOAN_THANH, chuyển Tab 5)
-            res = luong_b.xu_ly_anh_hoan_thanh_mot_bai(cid, format_type=format_type)
+            # Bước 1: cắt ảnh CHÍNH (CÓ logo) — đặt Status = HOAN_THANH, chuyển Tab 5.
+            # Ảnh đăng FB giữ logo.
+            res = luong_b.xu_ly_anh_hoan_thanh_mot_bai(cid, format_type=format_type,
+                                                       co_logo=True)
             if not res.get("success"):
                 REEL_STATUS["loi"].append({"id": cid, "err": res.get("message")})
             else:
-                # Bước 2: lấy ảnh đã xử lý rồi tạo reel 10s
-                anh_path = (res.get("data") or {}).get("anh_path")
-                r = reel.tao_reel(anh_path, co_nhac=True, ten_dau_ra=cid)
-                if not r.get("success"):
-                    REEL_STATUS["loi"].append({"id": cid, "err": r.get("error")})
+                # Bước 2: tạo ẢNH REEL riêng (KHÔNG logo) rồi dựng video reel 10s.
+                # Không đụng ảnh chính đã có logo.
+                res_reel = luong_b.xu_ly_anh_reel_mot_bai(cid, format_type=format_type)
+                anh_reel = (res_reel.get("data") or {}).get("anh_path") if res_reel.get("success") else ""
+                if not anh_reel:
+                    REEL_STATUS["loi"].append({"id": cid, "err": res_reel.get("message") or "Không có ảnh reel"})
+                else:
+                    r = reel.tao_reel(anh_reel, co_nhac=True, ten_dau_ra=cid)
+                    if not r.get("success"):
+                        REEL_STATUS["loi"].append({"id": cid, "err": r.get("error")})
         except Exception as e:
             REEL_STATUS["loi"].append({"id": cid, "err": str(e)})
         REEL_STATUS["da_xong"] += 1
@@ -829,6 +865,102 @@ def api_xuat_excel_tab5():
 
     wb.close()
     return jsonify({"ok": True, "xlsx_path": xlsx_path, "so_dong": len(danh_sach), "file": xlsx_path})
+
+
+@app.route("/api/xuat_excel_theo_chu_de", methods=["POST"])
+def api_xuat_excel_theo_chu_de():
+    """Xuất riêng file Excel cho mỗi chủ đề: san_sang_<CHUDE>.xlsx.
+
+    Lấy tất cả bài HOAN_THANH, nhóm theo chủ đề, mỗi chủ đề 1 file.
+    """
+    try:
+        import xlsxwriter
+    except Exception as e:
+        return jsonify({"ok": False, "loi": f"Thiếu xlsxwriter: {e}"}), 500
+
+    danh_sach = luong_b.lay_danh_sach_hoan_thanh()
+    if not danh_sach:
+        return jsonify({"ok": False, "loi": "Không có bài nào để xuất"}), 400
+
+    # Bài nào chưa có chủ đề → gán nhanh bằng KEY khớp + từ khoá trong nội dung
+    # (KHÔNG gọi AI ở đây để tránh treo; AI phân loại đã chạy lúc xử lý bài).
+    store = lay_store()
+    for r in danh_sach:
+        if (r.get("chu_de") or "").strip():
+            continue
+        cid = str(r.get("Content ID") or "").strip()
+        if not cid:
+            continue
+        key = r.get("KEY") or ""
+        noi_dung = r.get("Caption") or r.get("Caption mới") or ""
+        chu_de = luong_b.gan_chu_de_cho_bai_khong_ai(key or "", noi_dung or "")
+        if chu_de:
+            tim = store.tim_dong("CONTENT POOL", "Content ID", cid)
+            if tim:
+                idx, row = tim
+                row["Chủ đề"] = chu_de
+                store.cap_nhat_dong("CONTENT POOL", idx, row)
+            r["chu_de"] = chu_de
+
+    # Gom theo chủ đề
+    nhom = {}
+    for r in danh_sach:
+        chu_de = (r.get("chu_de") or "").strip()
+        if not chu_de:
+            chu_de = "Khac"
+        nhom.setdefault(chu_de, []).append(r)
+
+    cot = list(dong_goi.COT_CSV)
+    if "Đường dẫn ảnh" in cot:
+        cot.insert(cot.index("Đường dẫn ảnh") + 1, "Đường dẫn reel")
+    if "Chủ đề" not in cot:
+        cot.append("Chủ đề")
+
+    thu_muc = os.path.join(DUONG_DAN, "du_lieu_exel")
+    os.makedirs(thu_muc, exist_ok=True)
+    cac_file = []
+
+    for chu_de, ds in sorted(nhom.items()):
+        ten_file_safe = re.sub(r"[^a-zA-Z0-9]+", "_", chu_de).strip("_")
+        xlsx_path = os.path.join(thu_muc, f"san_sang_{ten_file_safe}.xlsx")
+
+        wb = xlsxwriter.Workbook(xlsx_path)
+        ws = wb.add_worksheet((chu_de or "Khac")[:31])
+        header_format = wb.add_format({"bold": True, "bg_color": "#1F4E78",
+                                       "font_color": "#FFFFFF", "align": "center",
+                                       "valign": "vcenter", "border": 1,
+                                       "border_color": "#D9D9D9"})
+        text_format = wb.add_format({"valign": "top", "text_wrap": True,
+                                     "border": 1, "border_color": "#D9D9D9"})
+
+        ws.write_row(0, 0, ["STT"] + cot, header_format)
+        for i, r in enumerate(ds, start=1):
+            goi = r.get("goi_fb") or {}
+            chu_de_this = r.get("chu_de") or ""
+            row = [
+                i,
+                r.get("Content ID") or "",
+                r.get("KEY") or "",
+                r.get("Nhân vật/chủ đề") or "",
+                r.get("Source") or "",
+                r.get("Thời gian đăng") or "",
+                r.get("Cảm xúc") or 0,
+                r.get("Bình luận") or 0,
+                r.get("Chia sẻ") or 0,
+                dong_goi.lam_phang_caption(r.get("Caption") or ""),
+                dong_goi.chon_caption_xuat(goi, r),
+                goi.get("article_url") or r.get("Article URL") or "",
+                goi.get("anh_path") or r.get("Media") or "",
+                r.get("reel_path") or "",
+                chu_de_this,
+                r.get("Status") or "",
+            ]
+            ws.write_row(i, 0, row, text_format)
+        wb.close()
+        cac_file.append({"chu_de": chu_de, "so_bai": len(ds), "file": xlsx_path})
+
+    return jsonify({"ok": True, "so_file": len(cac_file), "cac_file": cac_file,
+                    "thu_muc": thu_muc})
 @app.route("/api/xac_nhan_da_dang", methods=["POST"])
 def api_xac_nhan_da_dang():
     cid = (request.json or {}).get("content_id")
@@ -972,7 +1104,7 @@ def serve_media(filename):
 if __name__ == "__main__":
     print("=" * 60)
     print("🚀 GIAO DIỆN WEB UI TOOL TRAFFIC FACEBOOK (4 TAB)")
-    print("👉 Mở trình duyệt tại: http://127.0.0.1:5000")
+    print("👉 Mở trình duyệt tại: http://127.0.0.1:5001")
     print("=" * 60)
-    webbrowser.open("http://127.0.0.1:5000")
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    webbrowser.open("http://127.0.0.1:5001")
+    app.run(host="0.0.0.0", port=5001, debug=False, threaded=True)

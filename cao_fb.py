@@ -27,6 +27,36 @@ DEFAULT_UA = (
 NGUONG_GHEP = 2500
 
 
+def _cung_mot_bai(a: str, b: str) -> bool:
+    """Kiểm tra 2 nội dung có phải CÙNG MỘT bài (sau khi đã bỏ header/emoji).
+
+    Chỉ coi là trùng khi gần như GIỐNG HỆT — KHÔNG dùng tiền tố 120 ký tự
+    (vì 2 bài khác nhau có chung mở đầu/template sẽ bị gộp nhầm thành 1,
+    khiến đặt 10 bài chỉ cào được 3-4 bài).
+    """
+    a = (a or "").strip()
+    b = (b or "").strip()
+    if not a or not b:
+        return False
+    # Bỏ khoảng trắng để so chính xác hơn
+    ga = re.sub(r"\s+", "", a)
+    gb = re.sub(r"\s+", "", b)
+    if not ga or not gb:
+        return False
+    # Giống hệt toàn bộ -> chắc chắn trùng
+    if ga == gb:
+        return True
+    # Một bản là TIỀN TỐ đầy đủ của bản kia (bản ngắn hơn nằm trọn ở đầu bản dài)
+    # -> cùng 1 bài được render 2 lần (bản ngắn trước khi bấm "Xem thêm").
+    # Yêu cầu bản ngắn phải đủ dài (>= 60 ký tự) để tránh gộp nhầm 2 bài
+    # khác nhau chỉ vì mở đầu trùng vài từ.
+    if len(ga) >= 60 and len(gb) >= 60:
+        ngan, dai = (ga, gb) if len(ga) <= len(gb) else (gb, ga)
+        if dai.startswith(ngan):
+            return True
+    return False
+
+
 def _map_same_site(val):
     """Chuyển sameSite từ định dạng trình duyệt sang Playwright.
     Trình duyệt export: 'no_restriction'/'lax'/'strict'/null
@@ -611,10 +641,12 @@ def cào_trang(page_name: str, so_bai: int, so_lan_cuon: int, delay: float,
 
                 bai_moi = lay_du_lieu_dom(page, so_bai)
                 them = 0
+                so_trung = 0
                 for b in bai_moi:
                     if b["post_id"] in da_thay:
                         # FB lazy-load: lần đọc trước có thể chưa kịp tải ảnh, giờ bài
                         # render lại kèm ảnh -> bổ sung vào bản đang giữ.
+                        so_trung += 1
                         for cu in cac_bai:
                             if (cu.get("post_id") == b["post_id"]
                                     and not cu.get("images") and b.get("images")):
@@ -644,13 +676,10 @@ def cào_trang(page_name: str, so_bai: int, so_lan_cuon: int, delay: float,
                             "", binh_cu, count=1)
                         if not binh_cu_core:
                             binh_cu_core = binh_cu
-                        # So sánh phần NỘI DUNG (bỏ header), dùng 120 ký tự
-                        if binh_thuong_core and binh_cu_core and (
-                                binh_thuong_core[:120] == binh_cu_core[:120] or
-                                (len(binh_thuong_core) > 60 and
-                                 binh_thuong_core in binh_cu_core) or
-                                (len(binh_cu_core) > 60 and
-                                 binh_cu_core in binh_thuong_core)):
+                        # Kiểm tra trùng bằng nội dung gần như giống hệt
+                        # (tránh gộp nhầm 2 bài khác nhau có chung mở đầu/template)
+                        if binh_thuong_core and binh_cu_core and _cung_mot_bai(
+                                binh_thuong_core, binh_cu_core):
                             # giữ bản có link; nếu bản mới có link hơn thì thay;
                             # nếu bản cũ chưa có ảnh mà bản mới có -> bổ sung ảnh
                             if not cu["post_url"] and b["post_url"]:
@@ -663,12 +692,13 @@ def cào_trang(page_name: str, so_bai: int, so_lan_cuon: int, delay: float,
                             la_trung = True
                             break
                     if la_trung:
+                        so_trung += 1
                         continue
                     da_thay.add(b["post_id"])
                     cac_bai.append(b)
                     them += 1
-                log(f"    [i] Lần {lan}/{toi_da_lan}: +{them} bài mới "
-                    f"(tổng {len(cac_bai)})")
+                log(f"    [i] Lần {lan}/{toi_da_lan}: đọc {len(bai_moi)} bài, "
+                    f"+{them} mới, {so_trung} trùng (tổng {len(cac_bai)})")
 
                 if len(cac_bai) >= so_bai:
                     break

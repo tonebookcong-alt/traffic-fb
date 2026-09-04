@@ -19,6 +19,7 @@ from viet_lai import viet_3_caption, viet_bai_bao
 from media import chuan_bi_media, tao_thu_muc_ngay_gio
 from dang_web import dang_bai_web
 from reel import duong_dan_reel
+from gan_chu_de import gan_chu_de_cho_bai, gan_chu_de_cho_bai_khong_ai
 
 
 def lay_danh_sach_pool(trang_thai=None, key=None, nhan_vat=None, tim_kiem=None,
@@ -316,11 +317,15 @@ def xu_ly_ai_mot_bai(content_id: str, format_type: str = "1:1", callback=None) -
         res_web = dang_bai_web(tieu_de=tieu_de, noi_dung=bai_bao, anh_path=anh_path, nhan_vat=nhan_vat, key=key)
         article_url = res_web.get("article_url") or ""
 
+        # Gán chủ đề: ưu tiên KEY khớp, không khớp thì gọi AI
+        chu_de = gan_chu_de_cho_bai(key, caption_goc or bai_bao)
+
         # 5. Lưu gói bài đăng
         goi_fb = {
             "content_id": cid,
             "key": key,
             "nhan_vat": nhan_vat,
+            "chu_de": chu_de,
             "thoi_gian_tao": datetime.now().isoformat(),
             "article_url": article_url,
             "anh_path": anh_path,
@@ -350,6 +355,7 @@ def xu_ly_ai_mot_bai(content_id: str, format_type: str = "1:1", callback=None) -
             row["Caption mới"] = cap_v1
             row["Bài báo"] = bai_bao[:500] + "... [xem chi tiết trong thư mục]"
             row["Article URL"] = article_url
+            row["Chủ đề"] = chu_de
             row["Status"] = "WEB_POSTED"
             row["Ghi chú"] = f"Đã sẵn sàng tại {os.path.basename(thu_muc)}"
             store.cap_nhat_dong("CONTENT POOL", idx, row)
@@ -404,14 +410,19 @@ def xuat_noi_dung_ai_bai(content_id: str, format_type: str = "1:1", callback=Non
         if callback:
             callback({"status": "processing", "step": "web", "message": "Đang sinh link bài báo Website..."})
         tieu_de = f"Exclusive: {nhan_vat} — The Untold Story" if nhan_vat != "Khác" else f"Insight: {key} Update"
-        anh_goc = (dong.get("Media") or "")[:200]
+        # Lấy ảnh ĐẦU TIÊN (Media có thể là chuỗi nhiều ảnh cách nhau "; ") — ảnh làm thumbnail bài báo
+        anh_goc = str(dong.get("Media") or "").strip().split(";")[0].strip()[:300]
         res_web = dang_bai_web(tieu_de=tieu_de, noi_dung=bai_bao, anh_path=anh_goc, nhan_vat=nhan_vat, key=key)
         article_url = res_web.get("article_url") or ""
+
+        # Gán chủ đề: ưu tiên KEY khớp, không khớp thì gọi AI
+        chu_de = gan_chu_de_cho_bai(key, caption_goc or bai_bao)
 
         goi_fb = {
             "content_id": cid,
             "key": key,
             "nhan_vat": nhan_vat,
+            "chu_de": chu_de,
             "thoi_gian_tao": datetime.now().isoformat(),
             "article_url": article_url,
             "anh_path": "",
@@ -440,6 +451,7 @@ def xuat_noi_dung_ai_bai(content_id: str, format_type: str = "1:1", callback=Non
             row["Caption mới"] = cap_v1
             row["Bài báo"] = bai_bao[:500] + "... [xem chi tiết trong thư mục]"
             row["Article URL"] = article_url
+            row["Chủ đề"] = chu_de
             store.cap_nhat_dong("CONTENT POOL", idx, row)
 
         if callback:
@@ -544,9 +556,11 @@ def hoan_thanh_hang_loat(danh_sach_id: list, ghi_chu: str = "Đã hoàn thành h
     return {"success": True, "so_thanh_cong": so_thanh_cong, "so_loi": len(loi), "loi": loi}
 
 
-def xu_ly_anh_hoan_thanh_mot_bai(content_id: str, format_type: str = "1:1") -> dict:
+def xu_ly_anh_hoan_thanh_mot_bai(content_id: str, format_type: str = "1:1", co_logo: bool = True) -> dict:
     """Bước cắt ảnh (Tab 4): tải + crop ảnh chuẩn tỷ lệ rồi đặt Status = HOAN_THANH.
 
+    `co_logo=True` → dán logo lên ảnh (dùng cho nút Tạo Ảnh).
+    `co_logo=False` → không dán logo (dùng cho ảnh reel).
     Cắt ảnh vào CHÍNH thư mục chứa `bo_bai_<id>.json` (nếu tìm thấy) để gói bài nằm cùng chỗ.
     """
     store = lay_store()
@@ -567,7 +581,8 @@ def xu_ly_anh_hoan_thanh_mot_bai(content_id: str, format_type: str = "1:1") -> d
         thu_muc = tao_thu_muc_ngay_gio()
 
     try:
-        anh_path = chuan_bi_media(dong, format_type=format_type, thu_muc=thu_muc)
+        anh_path = chuan_bi_media(dong, format_type=format_type, thu_muc=thu_muc,
+                                  co_logo=co_logo)
         if not anh_path:
             # Không tải được ảnh — vẫn đánh dấu xong để không kẹt ở tab4
             anh_path = dong.get("Media") or ""
@@ -593,6 +608,29 @@ def xu_ly_anh_hoan_thanh_mot_bai(content_id: str, format_type: str = "1:1") -> d
 
     except Exception as e:
         doi_status(content_id, "ERROR", ghi_chu=f"Lỗi cắt ảnh: {str(e)[:100]}", store=store)
+        return {"success": False, "message": str(e)}
+
+
+def xu_ly_anh_reel_mot_bai(content_id: str, format_type: str = "1:1") -> dict:
+    """Tạo ẢNH REEL riêng (KHÔNG logo) trong du_lieu_reel/anh_reel/.
+
+    Không đụng vào ảnh chính (có logo) đã lưu trong bo_bai — nên nếu bạn đã bấm
+    "Tạo Ảnh" trước, ảnh đăng FB vẫn giữ logo; video reel dùng ảnh không logo.
+    """
+    store = lay_store()
+    tim = store.tim_dong("CONTENT POOL", "Content ID", content_id)
+    if not tim:
+        return {"success": False, "message": f"Không tìm thấy bài {content_id}"}
+    _, dong = tim
+    thu_muc_reel = os.path.join(DUONG_DAN, "du_lieu_reel", "anh_reel")
+    os.makedirs(thu_muc_reel, exist_ok=True)
+    try:
+        anh_reel = chuan_bi_media(dong, format_type=format_type, thu_muc=thu_muc_reel,
+                                  co_logo=False)
+        if not anh_reel:
+            anh_reel = dong.get("Media") or ""
+        return {"success": True, "data": {"content_id": content_id, "anh_path": anh_reel}}
+    except Exception as e:
         return {"success": False, "message": str(e)}
 
 
@@ -636,6 +674,7 @@ def _lay_danh_sach_theo_status(*statuses, phien=None) -> list:
             item["goi_fb"] = goi
             item["anh_path"] = goi.get("anh_path") or ""
             item["reel_path"] = duong_dan_reel(cid)
+            item["chu_de"] = (goi.get("chu_de") or row.get("Chủ đề") or "").strip()
             item["caption_lua_chon"] = goi.get("caption_lua_chon") or row.get("Caption mới") or ""
             item["article_url"] = goi.get("article_url") or row.get("Article URL") or ""
             item["folder"] = goi.get("folder") or ""

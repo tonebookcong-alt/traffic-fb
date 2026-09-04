@@ -15,6 +15,7 @@ thì dùng Google Sheets, ngược lại dùng Local.
 import json
 import os
 import re
+import threading
 
 from config import DUONG_DAN, load_config
 
@@ -31,7 +32,7 @@ COT_SOURCE_CONFIG = ["KEY", "Facebook nguồn", "Nhân vật gợi ý"]
 COT_CONTENT_POOL = [
     "Content ID", "KEY", "Nhân vật/chủ đề", "Source", "Caption", "Media",
     "Link bài", "Thời gian đăng", "Cảm xúc", "Bình luận", "Chia sẻ",
-    "Caption mới", "Bài báo", "Article URL", "Status", "Ghi chú",
+    "Caption mới", "Bài báo", "Article URL", "Chủ đề", "Status", "Ghi chú",
 ]
 COT_PAGE_PERFORMANCE = [
     "Page", "Post", "KEY", "Nhân vật/chủ đề", "Cảm xúc", "Bình luận",
@@ -64,41 +65,46 @@ class LocalJsonStore:
     def __init__(self):
         self.thumuc = os.path.join(DUONG_DAN, "du_lieu_traffic")
         os.makedirs(self.thumuc, exist_ok=True)
+        self._lock = threading.RLock()
 
     def _duong_dan(self, ten_sheet):
         return os.path.join(self.thumuc, _ten_file_an_toan(ten_sheet) + ".json")
 
     def lay_tat_ca(self, ten_sheet):
-        p = self._duong_dan(ten_sheet)
-        if not os.path.isfile(p):
-            return []
-        try:
-            with open(p, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return []
+        with self._lock:
+            p = self._duong_dan(ten_sheet)
+            if not os.path.isfile(p):
+                return []
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError):
+                return []
 
     def them_dong(self, ten_sheet, dong: dict):
         """Thêm 1 dòng (dict theo tên cột). Header chưa có thì dùng schema."""
-        danh_sach = self.lay_tat_ca(ten_sheet)
-        danh_sach.append(dong)
-        self._ghi(ten_sheet, danh_sach)
+        with self._lock:
+            danh_sach = self.lay_tat_ca(ten_sheet)
+            danh_sach.append(dong)
+            self._ghi(ten_sheet, danh_sach)
         return len(danh_sach)
 
     def cap_nhat_dong(self, ten_sheet, chi_so: int, dong: dict):
         """Ghi đè dòng theo chi_so (0-based — dòng 2 trong bảng = chi_so 0)."""
-        danh_sach = self.lay_tat_ca(ten_sheet)
-        while len(danh_sach) <= chi_so:
-            danh_sach.append({})
-        danh_sach[chi_so] = dong
-        self._ghi(ten_sheet, danh_sach)
+        with self._lock:
+            danh_sach = self.lay_tat_ca(ten_sheet)
+            while len(danh_sach) <= chi_so:
+                danh_sach.append({})
+            danh_sach[chi_so] = dong
+            self._ghi(ten_sheet, danh_sach)
 
     def xoa_dong(self, ten_sheet, chi_so: int):
         """Xóa 1 dòng theo chi_so (0-based — dòng 2 trong bảng = chi_so 0)."""
-        danh_sach = self.lay_tat_ca(ten_sheet)
-        if 0 <= chi_so < len(danh_sach):
-            del danh_sach[chi_so]
-            self._ghi(ten_sheet, danh_sach)
+        with self._lock:
+            danh_sach = self.lay_tat_ca(ten_sheet)
+            if 0 <= chi_so < len(danh_sach):
+                del danh_sach[chi_so]
+                self._ghi(ten_sheet, danh_sach)
 
     def tim_dong(self, ten_sheet, cot: str, gia_tri) -> (int, dict):
         """Tìm dòng đầu tiên có cot == gia_tri. Trả về (chi_so, dong) hoặc None."""

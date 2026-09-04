@@ -626,6 +626,7 @@
             </div>
             <div class="d-flex gap-2 align-items-center">
               <button class="btn btn-sm btn-primary" onclick="xuatExcelTab5()"><i class="fa-solid fa-file-excel me-1"></i> Xuất Excel</button>
+              <button class="btn btn-sm btn-success" onclick="xuatExcelTheoChuDe()"><i class="fa-solid fa-layer-group me-1"></i> Xuất theo chủ đề</button>
               <button class="btn btn-sm btn-outline-secondary" onclick="taiBaiHoanThanh()"><i class="fa-solid fa-rotate-right me-1"></i> Làm mới</button>
             </div>
           </div>
@@ -983,7 +984,7 @@
       let html = '';
       list.forEach((item) => {
         const st = item.Status || 'NEW';
-        const media = item.Media || '';
+        const media = mediaUrl(item.Media || '', item.Media || '');
         const cap = item.Caption || '';
         const likes = item.cam_xuc_num || 0;
         const cmts = item.binh_luan_num || 0;
@@ -1174,7 +1175,7 @@
         const cmts = item.binh_luan_num || 0;
         const shares = item.chia_se_num || 0;
         // Ảnh bản cuối = ảnh gốc nếu chưa có ảnh đã cắt
-        const img = item['Ảnh đăng'] || item.Media || '';
+        const img = mediaUrl(item['Ảnh đăng'] || item.Media || '', item.Media || '');
         const cid = item['Content ID'];
         html += `<tr>
           <td class="text-center"><input type="checkbox" class="form-check-input chinhBai-checkbox" value="${esc(cid)}" onchange="capNhatChinhBaiSelectedCount()"></td>
@@ -1729,6 +1730,20 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+      });
+    }
+
+    function xuatExcelTheoChuDe() {
+      fetch('/api/xuat_excel_theo_chu_de', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: '{}'
+      })
+      .then(r => r.json())
+      .then(d => {
+        if(!d.ok) return showToast('❌ ' + d.loi);
+        const ds = (d.cac_file || []).map(f => `${f.chu_de} (${f.so_bai} bài)`).join(' • ');
+        showToast('📥 Đã xuất ' + d.so_file + ' file theo chủ đề: ' + ds);
       });
     }
 

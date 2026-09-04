@@ -16,6 +16,7 @@ from datetime import datetime
 DUONG_DAN = os.path.dirname(os.path.abspath(__file__))
 MUSIC_MUSIC1 = os.path.join(DUONG_DAN, "music", "music1", "10s")
 MUSIC_NBA = os.path.join(DUONG_DAN, "music", "NBA Music", "10s")
+MUSIC_EPIC = os.path.join(DUONG_DAN, "music", "Epic Music", "10s")
 REEL_DIR = os.path.join(DUONG_DAN, "du_lieu_reel")
 
 W, H = 1080, 1920
@@ -24,9 +25,9 @@ GIAY = 10
 
 
 def chon_nhac_ngau_nhien(root: str = None) -> str | None:
-    """Chọn ngẫu nhiên 1 file nhạc 10s. Gộp cả 2 mục music1 + NBA Music."""
+    """Chọn ngẫu nhiên 1 file nhạc 10s. Gộp music1 + NBA Music + Epic Music."""
     duong = []
-    for folder in (MUSIC_MUSIC1, MUSIC_NBA):
+    for folder in (MUSIC_MUSIC1, MUSIC_NBA, MUSIC_EPIC):
         if os.path.isdir(folder):
             for f in os.listdir(folder):
                 if f.lower().endswith((".mp3", ".m4a", ".aac", ".weba", ".ogg", ".wav")):

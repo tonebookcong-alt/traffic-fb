@@ -138,7 +138,10 @@ def chong_trung(cac_bai: list, store=None, phien: str = "") -> list:
                 dong["Caption"] = text
                 if bai.get("post_url"):
                     dong["Link bài"] = bai.get("post_url")
-                if bai.get("images"):
+                anh_local = bai.get("images_da_tai") or []
+                if anh_local:
+                    dong["Media"] = "; ".join(str(u) for u in anh_local[:5])
+                elif bai.get("images"):
                     dong["Media"] = "; ".join(str(u) for u in bai["images"][:5])
                 dong["Cảm xúc"] = bai.get("likes") or dong.get("Cảm xúc") or 0
                 dong["Bình luận"] = bai.get("comments") or dong.get("Bình luận") or 0
@@ -166,7 +169,13 @@ def them_content(bai: dict, key: str, nhan_vat: str, source: str,
     pid = str(bai.get("post_id") or "")
     text = (bai.get("text") or "").strip()
     images = bai.get("images") or []
-    media = "; ".join(str(u) for u in images[:5])  # link ảnh FB (tải về lúc đăng)
+    # Ưu tiên ảnh ĐÃ TẢI VỀ MÁY (images_da_tai) — trình duyệt/fetch hiển thị được;
+    # chỉ dùng URL external khi không có ảnh local.
+    anh_local = bai.get("images_da_tai") or []
+    if anh_local:
+        media = "; ".join(str(u) for u in anh_local[:5])
+    else:
+        media = "; ".join(str(u) for u in images[:5])  # link ảnh FB (tải về lúc đăng)
 
     dong = {
         "Content ID": pid,

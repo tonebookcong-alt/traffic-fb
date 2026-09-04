@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Cào dữ liệu Facebook Page (text + ảnh) bằng thư viện facebook-scraper.
@@ -422,8 +422,16 @@ def ghi_excel(ket_qua: dict, ten_file: str) -> str:
         r += 1
 
     # ================= Sheet từng trang =================
+    ten_sheet_da_dung = set()
     for page, posts in ket_qua.items():
         ten_sheet = re.sub(r'[\\/*?:\[\]]', "_", page)[:31] or "trang"
+        # Tránh trùng tên sheet (VD: 2 profile page có prefix giống nhau)
+        if ten_sheet in ten_sheet_da_dung:
+            duoi = 2
+            while f"{ten_sheet[:27]}_{duoi}" in ten_sheet_da_dung:
+                duoi += 1
+            ten_sheet = f"{ten_sheet[:27]}_{duoi}"
+        ten_sheet_da_dung.add(ten_sheet)
         ws = wb.add_worksheet(ten_sheet)
         ke_dong_dau(ws, cot)
         for i, post in enumerate(posts, 1):  # dòng 1 = dòng dữ liệu đầu (0-based)
@@ -545,7 +553,14 @@ def run_cào(trang_ho: list, pages: int = 3, limit: int = 0, per_page: int = 0,
     # Mỗi lần chạy = 1 file Excel RIÊNG trong folder 'du_lieu_exel'
     # (kèm giờ phút để không ghi đè lần chạy trước — cùng giờ với thư mục ảnh)
     ten_xlsx = f"du_lieu_exel/{output}_{thoi_gian_cao}"
-    xlsx_path = ghi_excel(ket_qua, ten_xlsx)
+    try:
+        xlsx_path = ghi_excel(ket_qua, ten_xlsx)
+    except Exception as e:
+        # Lỗi ghi Excel KHÔNG được làm mất dữ liệu bài đã cào — vẫn trả ket_qua
+        print(f"  ⚠️ Lỗi ghi Excel: {e}")
+        phat_su_kien(callback, {"loai": "log",
+                                "noi_dung": f"⚠️ Lỗi ghi file Excel (dữ liệu bài vẫn còn): {e}"})
+        xlsx_path = f"{ten_xlsx}.xlsx"
 
     print(f"\n=== HOÀN THÀNH: {sum(len(p) for p in ket_qua.values())} bài viết từ {len(ket_qua)} trang ===")
     for page, posts in ket_qua.items():

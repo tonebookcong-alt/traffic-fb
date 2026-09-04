@@ -44,12 +44,13 @@ def tai_anh(url: str, duong_dan_luu: str, timeout: int = 20) -> bool:
         return False
 
 
-def xu_ly_anh(anh_goc_path: str, anh_dich_path: str, format_type: str = "1:1", cfg: dict = None) -> bool:
+def xu_ly_anh(anh_goc_path: str, anh_dich_path: str, format_type: str = "1:1", cfg: dict = None,
+              co_logo: bool = True) -> bool:
     """Giữ nguyên tỷ lệ ảnh gốc (KHÔNG crop) — chỉ resize gọn + thêm logo/viền.
 
     - Resize cạnh dài về `max_size` (mặc định 1080), giữ tỷ lệ, không cắt bớt gì.
     - Chỉnh nhẹ màu/tương phản/sáng (enhance_*) để né FB quét trùng nội dung.
-    - Dán logo + thêm viền (solid hoặc gradient, theo `border_style`).
+    - Dán logo (nếu `co_logo=True`) + thêm viền (solid hoặc gradient, theo `border_style`).
     `format_type` giữ để tương thích chỗ gọi cũ, nhưng không còn crop theo tỷ lệ.
     """
     cfg = cfg or (load_config().get("media") or {})
@@ -69,7 +70,8 @@ def xu_ly_anh(anh_goc_path: str, anh_dich_path: str, format_type: str = "1:1", c
                 else:
                     im = im.resize((int(w * canh_dai / h), canh_dai), Image.Resampling.LANCZOS)
             im = _tinh_chinh(im, cfg)
-            im = them_logo_va_vien(im, cfg)
+            if co_logo:
+                im = them_logo_va_vien(im, cfg)
             im = them_vien(im, cfg)
             im.save(anh_dich_path, format="JPEG", quality=90)
             return True
@@ -177,24 +179,59 @@ def them_logo_va_vien(anh: Image.Image, cfg: dict = None) -> Image.Image:
     return anh
 
 
-def chuan_bi_media(bai_viet: dict, format_type: str = "1:1", thu_muc: str = None) -> str:
-    """Tải và xử lý ảnh cho bài viết, trả về đường dẫn file ảnh hoàn chỉnh."""
+def chuan_bi_media(bai_viet: dict, format_type: str = "1:1", thu_muc: str = None,
+                   co_logo: bool = True) -> str:
+    """Tải và xử lý ảnh cho bài viết, trả về đường dẫn file ảnh hoàn chỉnh.
+
+    Media có thể là:
+      - URL external (https://...)  → tải về rồi crop
+      - Đường dẫn local (du_lieu_images\\...\\x.jpg) → dùng thẳng ảnh có sẵn
+    `co_logo=False` → bỏ dán logo (dùng cho ảnh làm reel).
+    """
+    import config
     media_url = str(bai_viet.get("Media") or "").strip()
     content_id = str(bai_viet.get("Content ID") or "post").replace(":", "_").replace("/", "_")
 
     if not thu_muc:
         thu_muc = tao_thu_muc_ngay_gio()
 
-    if not media_url or not media_url.startswith("http"):
-        return ""
-
     anh_tho = os.path.join(thu_muc, f"{content_id}_raw.jpg")
     anh_xuly = os.path.join(thu_muc, f"{content_id}_{format_type.replace(':', 'x')}.jpg")
 
-    if tai_anh(media_url, anh_tho):
-        if xu_ly_anh(anh_tho, anh_xuly, format_type=format_type):
+    nguon_tho = ""
+    if media_url.startswith("http"):
+        nguon_tho = media_url  # tải về sau
+    else:
+        # Media là đường dẫn local — giải quyết theo DUONG_DAN
+        p_local = media_url
+        if not os.path.isabs(p_local):
+            p_local = os.path.join(config.DUONG_DAN, p_local)
+        # Có thể là nhiều ảnh ngăn cách '; ' — lấy ảnh đầu tiên tồn tại
+        if os.path.isfile(p_local):
+            nguon_tho = p_local
+        else:
+            for phan in str(media_url).split(";"):
+                phan = phan.strip()
+                if not phan:
+                    continue
+                p_try = phan if os.path.isabs(phan) else os.path.join(config.DUONG_DAN, phan)
+                if os.path.isfile(p_try):
+                    nguon_tho = p_try
+                    break
+
+    if nguon_tho.startswith("http"):
+        if not tai_anh(nguon_tho, anh_tho):
+            return ""
+        if xu_ly_anh(anh_tho, anh_xuly, format_type=format_type, co_logo=co_logo):
             return anh_xuly
         return anh_tho
+
+    elif nguon_tho and os.path.isfile(nguon_tho):
+        # Ảnh đã có sẵn trên đĩa — chỉ cần crop vào thư mục đích
+        if xu_ly_anh(nguon_tho, anh_xuly, format_type=format_type, co_logo=co_logo):
+            return anh_xuly
+        return nguon_tho
+
     return ""
 
 

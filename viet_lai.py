@@ -78,7 +78,7 @@ def viet_bai_bao(caption_goc: str, nhan_vat: str = "", key: str = "", max_retrie
     )
     for lan in range(max_retries + 1):
         try:
-            bai_bao = goi_ai(PROMPT_BAI_BAO_SYSTEM, prompt_user, nhiet_do=0.7, toi_da_tu=4500)
+            bai_bao = goi_ai(PROMPT_BAI_BAO_SYSTEM, prompt_user, nhiet_do=0.7, toi_da_tu=3000)
             if bai_bao and len(bai_bao.strip()) > 200:
                 return bai_bao.strip()
         except Exception as e:
